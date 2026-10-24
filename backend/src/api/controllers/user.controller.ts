@@ -284,19 +284,20 @@ export class UserController {
         return;
       }
 
-      if (!requestingUser?.isAdmin) {
-        const accessibleUserIds = await GroupService.getUsersSharingActiveGroup(
-          requestingUser.id,
-          [parsedUserId]
-        );
-        if (!accessibleUserIds.has(parsedUserId)) {
-          res.status(404).json({
-            success: false,
-            error: 'User not found',
-            code: 'USER_NOT_FOUND',
-          });
-          return;
-        }
+      /* Правило одно для всех: нужна общая группа. Обход по глобальному
+         users.is_admin снят, как и во всех остальных модулях, — флаг
+         открывал аватар любого человека без общей группы. */
+      const accessibleUserIds = await GroupService.getUsersSharingActiveGroup(
+        requestingUser.id,
+        [parsedUserId]
+      );
+      if (!accessibleUserIds.has(parsedUserId)) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
+        });
+        return;
       }
 
       // Получаем пользователя по ID
@@ -367,12 +368,11 @@ export class UserController {
       const parsedIds = userIds
         .map((id) => parseInt(id, 10))
         .filter((id) => Number.isInteger(id) && id > 0);
-      const accessibleIds = requestingUser?.isAdmin
-        ? new Set(parsedIds)
-        : await GroupService.getUsersSharingActiveGroup(
-            requestingUser.id,
-            parsedIds
-          );
+      // То же правило, что у одиночного аватара: без обхода по users.is_admin.
+      const accessibleIds = await GroupService.getUsersSharingActiveGroup(
+        requestingUser.id,
+        parsedIds
+      );
       const authorizedIds = parsedIds.filter(id => accessibleIds.has(id));
       const usersById = new Map(
         (await UserService.getUsersByIds(authorizedIds)).map((u) => [u.id, u])
