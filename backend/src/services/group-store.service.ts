@@ -27,7 +27,11 @@ type StoreTxClient = {
     findUnique(args: {
       where: Prisma.GroupStoreWhereUniqueInput;
     }): Promise<GroupStore | null>;
-    create(args: { data: Prisma.GroupStoreUncheckedCreateInput }): Promise<GroupStore>;
+    upsert(args: {
+      where: Prisma.GroupStoreWhereUniqueInput;
+      create: Prisma.GroupStoreUncheckedCreateInput;
+      update: Prisma.GroupStoreUncheckedUpdateInput;
+    }): Promise<GroupStore>;
     update(args: {
       where: Prisma.GroupStoreWhereUniqueInput;
       data: Prisma.GroupStoreUncheckedUpdateInput;
@@ -105,34 +109,18 @@ export class GroupStoreService {
     }
 
     const normalizedName = normalizeName(name);
-    const existing = await tx.groupStore.findUnique({
+    /* Одна инструкция INSERT … ON CONFLICT DO UPDATE, а не «найти, создать,
+       при P2002 перечитать». Отказ уникального индекса прерывает транзакцию
+       PostgreSQL (25P02), и перечитать строку соперника в ней уже нельзя:
+       второй из двух одновременно заводивших магазин получал 500. Теперь
+       второй ждёт фиксации первого и отмечает использование его записи.
+       Ветка `update` — то же, что `touchExisting`: имя не переписывается. */
+    const store = await tx.groupStore.upsert({
       where: { groupId_normalizedName: { groupId, normalizedName } },
+      create: { groupId, createdById: userId, name, normalizedName },
+      update: { lastUsedAt: new Date(), usageCount: { increment: 1 }, archivedAt: null },
     });
-    if (existing) {
-      return this.touchExisting(tx, existing);
-    }
-
-    try {
-      const created = await tx.groupStore.create({
-        data: { groupId, createdById: userId, name, normalizedName },
-      });
-      return { id: created.id, name: created.name };
-    } catch (error) {
-      /* Гонка: два участника одновременно завели один магазин, уникальный
-         индекс отдал второму P2002. Соперник уже создал строку — берём её,
-         вместо того чтобы падать на действии, которое пользователь считает
-         успешным. */
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const raced = await tx.groupStore.findUnique({
-          where: { groupId_normalizedName: { groupId, normalizedName } },
-        });
-        if (raced) return this.touchExisting(tx, raced);
-      }
-      throw error;
-    }
+    return { id: store.id, name: store.name };
   }
 
   /**
