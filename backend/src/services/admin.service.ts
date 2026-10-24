@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { now } from '../utils/date';
 import { getBotInstance } from '../bot/bot-instance';
 import { GroupService } from './group.service';
+import { DebtNotFoundError } from './budget.errors';
 import { toNumber, sumDecimals } from '../utils/decimal';
 import { escapeMarkdown } from '../utils/telegram-html';
 import type { Prisma } from '@prisma/client';
@@ -525,7 +526,7 @@ export class AdminService {
       });
 
       if (!transaction || transaction.poll?.groupId !== groupId) {
-        throw new Error('Debt not found in group');
+        throw new DebtNotFoundError('Debt not found in group');
       }
 
       const updated = await prisma.transaction.update({

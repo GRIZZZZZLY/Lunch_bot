@@ -4,6 +4,7 @@ import { ReminderSettingsService } from '../../services/reminder-settings.servic
 import { GroupService } from '../../services/group.service';
 import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
+import { BaseError } from '../../utils/error';
 import { collapseRepeatedValue, respondIfInvalidInput } from '../middleware/validate';
 import {
   adminCleanupQuery,
@@ -423,6 +424,9 @@ export class AdminController {
       });
     } catch (error) {
       if (respondIfInvalidInput(req, res, error)) return;
+      /* Отказ со своим статусом (чужой или несуществующий долг — 404) отдаёт
+         error-handler; 500 остаётся настоящему сбою. */
+      if (error instanceof BaseError) throw error;
       logger.error('[AdminController] Error forgiving debt:', error);
       res.status(500).json({
         success: false,

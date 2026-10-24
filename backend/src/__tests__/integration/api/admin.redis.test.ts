@@ -396,8 +396,8 @@ describe('списание долга', () => {
     expect((await debt(w.debtA)).status).toBe('PENDING');
   });
 
-  // BUG: чужой или несуществующий долг отвечает 500 INTERNAL_ERROR вместо 404 — сервис бросает голый Error.
-  it.failing('долг другой группы отвечает 404, а не ошибкой сервера', async () => {
+  // Регрессия: чужой долг отвечал 500 — сервис бросал голый Error.
+  it('долг другой группы отвечает 404, а не ошибкой сервера', async () => {
     const response = await call('post', `/api/admin/debts/${w.debtA}/forgive?groupId=${w.groupB}`, 'boris');
     expect(response.status).toBe(404);
   });
