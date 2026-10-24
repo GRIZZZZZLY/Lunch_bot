@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Перед пушем в main запускает все проверки проекта (CI на GitHub нет).
+# Включение один раз на клон: git config core.hooksPath .githooks
+# Пуш других веток проходит без проверок.
+
+set -euo pipefail
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main | refs/heads/master)
+      exec bash "$(git rev-parse --show-toplevel)/scripts/check-all.sh"
+      ;;
+  esac
+done

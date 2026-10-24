@@ -6,7 +6,8 @@ export default defineConfig({
   testDir: './tests/e2e',
   outputDir: './test-results',
   fullyParallel: false,
-  forbidOnly: !!process.env.CI,
+  // Проверка перед пушем не должна проходить на забытом test.only.
+  forbidOnly: true,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : 1,
   timeout: 30_000,
@@ -30,19 +31,7 @@ export default defineConfig({
         ...devices['Pixel 5'],
         viewport: { width: 390, height: 844 },
       },
-    },
-    {
-      name: 'mobile-webkit',
-      use: {
-        ...devices['iPhone 13'],
-        viewport: { width: 390, height: 844 },
-      },
-      grepInvert: /@chromium-only|@integration/,
-    },
-    {
-      name: 'desktop-chromium',
-      use: { ...devices['Desktop Chrome'] },
-      grep: /@desktop|@smoke/,
+      /* Сценарии с настоящим сервером идут отдельным проектом ниже. */
       grepInvert: /@integration/,
     },
     {

@@ -1,0 +1,3 @@
+# Скрипты запускаются bash: CRLF ломает их и на сервере, и в Git Bash.
+*.sh text eol=lf
+.githooks/* text eol=lf

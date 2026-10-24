@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
-# Ручной выпуск Rocket Lunch на VPS — запасной путь, когда GitHub Actions
-# недоступен. Канонический путь: `.github/workflows/deploy.yml`.
+# Выпуск Rocket Lunch на VPS. Единственный путь выката: GitHub Actions в
+# проекте нет, проверки запускаются локально перед пушем в main
+# (`bash scripts/check-all.sh`), поэтому выпускать можно только коммит, который
+# эту проверку прошёл.
 #
-# Скрипт намеренно повторяет шаги workflow, а не изобретает свои: иначе ручной
-# выкат оставляет сервер в состоянии, которого автоматический не ожидает.
+# Запуск — на сервере, из исходного чекаута: `bash deploy-vps.sh`.
+# Откат на предыдущий релиз: `ROLLBACK=1 bash deploy-vps.sh`.
 #
 # Схема на сервере — релиз-каталоги по коммиту:
 #
@@ -27,12 +29,12 @@
 #    перезапустит бинарник ПРОШЛОГО релиза и отрапортует успех. Смена релиза —
 #    это `pm2 delete` + `pm2 start` (см. switch_release).
 # 2. `.env` в репозитории нет. Источник истины — `backend/.env` исходного
-#    чекаута, оттуда же его берёт workflow.
+#    чекаута.
 # 3. В свежем worktree нет `backend/logs` и `backend/uploads`: они в .gitignore.
 #    Без симлинков на общие каталоги логи и загрузки теряются при каждом выкате.
 #
 # Переменные: BRANCH, REF, DOMAIN, ENV_SUFFIX, PM2_APP, HEALTH_URL,
-# SOURCE_CHECKOUT, RELEASES_DIR, BACKEND_ENV.
+# SOURCE_CHECKOUT, RELEASES_DIR, BACKEND_ENV, KEEP_RELEASES, ROLLBACK.
 #
 # ENV_SUFFIX выбирает режим сборки Vite: production (по умолчанию) или prod-dev
 # — отладочная production-сборка. Vite решает по mode И какие `.env` грузить, И
@@ -57,7 +59,7 @@ case "$ENV_SUFFIX" in
     ;;
 esac
 
-# Старый интерфейс удалён, поддерживается единственный каталог (как в workflow).
+# Старый интерфейс удалён, поддерживается единственный каталог.
 if [ "$FRONTEND_DIR" != 'frontend-new' ]; then
   echo "Unsupported FRONTEND_DIR: $FRONTEND_DIR" >&2
   exit 1
@@ -79,26 +81,50 @@ test -f "$BACKEND_ENV"
 
 log "Источник: $SOURCE_CHECKOUT (ветка $BRANCH); релизы: $RELEASES_DIR"
 
-git -C "$SOURCE_CHECKOUT" fetch --prune origin "$BRANCH"
-SHA="$(git -C "$SOURCE_CHECKOUT" rev-parse "$REF^{commit}")"
-RELEASE="$RELEASES_DIR/$SHA"
-log "Релиз: ${SHA:0:8} → $RELEASE"
+# `pm2 delete` + `pm2 start`, а не `startOrReload`: см. грабли №1 в шапке.
+switch_release() {
+  local root="$1"
+  ln -sfn "$root" "$RELEASES_DIR/current.next"
+  mv -Tf "$RELEASES_DIR/current.next" "$CURRENT_LINK"
+  pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
+  APP_ROOT="$root" BACKEND_ENV_FILE="$root/backend/.env" \
+    pm2 start "$root/ecosystem.config.js" --only "$PM2_APP" --update-env
+  pm2 save >/dev/null
+}
 
-# Workflow выпуска не пропустит коммит без успешного CI — здесь та же проверка,
-# если на сервере есть gh. Запасной путь нужен именно тогда, когда GitHub
-# недоступен, поэтому без gh это предупреждение, а не отказ.
-if command -v gh >/dev/null 2>&1; then
-  GITHUB_REPOSITORY="$(git -C "$SOURCE_CHECKOUT" remote get-url origin \
-    | sed -E 's#^.*github\.com[:/]##; s#\.git$##')" \
-    DEPLOY_SHA="$SHA" bash "$(dirname "$0")/.github/scripts/require-green-ci.sh"
-else
-  log "ВНИМАНИЕ: gh не найден, CI для ${SHA:0:8} не проверен. Проверьте его вручную до выката."
-fi
+health_ok() {
+  curl --fail --silent --show-error --retry 8 --retry-delay 5 "$HEALTH_URL" >/dev/null
+}
 
 PREVIOUS=""
 if [ -L "$CURRENT_LINK" ]; then
   PREVIOUS="$(readlink -f "$CURRENT_LINK")"
 fi
+
+# Откат: вернуть релиз из .previous-release, ничего не собирая. Текущий релиз
+# становится «предыдущим», так что повторный ROLLBACK=1 возвращает обратно.
+if [ "${ROLLBACK:-0}" = '1' ]; then
+  TARGET="$(readlink -f "$(cat "$PREVIOUS_FILE" 2>/dev/null || true)" 2>/dev/null || true)"
+  case "$TARGET" in
+    "$RELEASES_DIR"/*) ;;
+    *) echo "Нет предыдущего релиза в $PREVIOUS_FILE — откатывать некуда" >&2; exit 1 ;;
+  esac
+  test -d "$TARGET/backend"
+  log "Откат на $(basename "$TARGET" | cut -c1-8)"
+  printf '%s\n' "$PREVIOUS" > "$PREVIOUS_FILE"
+  switch_release "$TARGET"
+  if health_ok && pm2 jlist | grep -qF "$TARGET/backend/dist/index.js"; then
+    log "Откат выполнен: релиз $(basename "$TARGET" | cut -c1-8)"
+    exit 0
+  fi
+  echo "ОТКАТ НЕ ПОДНЯЛСЯ — прод лежит, нужен ручной разбор" >&2
+  exit 1
+fi
+
+git -C "$SOURCE_CHECKOUT" fetch --prune origin "$BRANCH"
+SHA="$(git -C "$SOURCE_CHECKOUT" rev-parse "$REF^{commit}")"
+RELEASE="$RELEASES_DIR/$SHA"
+log "Релиз: ${SHA:0:8} → $RELEASE"
 
 # --- Подготовка релиза ---------------------------------------------------
 
@@ -164,21 +190,6 @@ log "Миграции"
 
 # --- Переключение --------------------------------------------------------
 
-# `pm2 delete` + `pm2 start`, а не `startOrReload`: см. грабли №1 в шапке.
-switch_release() {
-  local root="$1"
-  ln -sfn "$root" "$RELEASES_DIR/current.next"
-  mv -Tf "$RELEASES_DIR/current.next" "$CURRENT_LINK"
-  pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
-  APP_ROOT="$root" BACKEND_ENV_FILE="$root/backend/.env" \
-    pm2 start "$root/ecosystem.config.js" --only "$PM2_APP" --update-env
-  pm2 save >/dev/null
-}
-
-health_ok() {
-  curl --fail --silent --show-error --retry 8 --retry-delay 5 "$HEALTH_URL" >/dev/null
-}
-
 if [ -n "$PREVIOUS" ]; then
   printf '%s\n' "$PREVIOUS" > "$PREVIOUS_FILE"
 else
@@ -188,9 +199,8 @@ fi
 log "Переключение на ${SHA:0:8}"
 switch_release "$RELEASE"
 
-# Уборка старых релизов. Правила те же, что у шага 'Prune old releases' в
-# workflow: держим current, previous и KEEP_RELEASES свежих, трогаем только
-# каталоги с именем ровно из 40 hex-символов. Каждый релиз несёт свои
+# Уборка старых релизов: держим current, previous и KEEP_RELEASES свежих,
+# трогаем только каталоги с именем ровно из 40 hex-символов. Каждый релиз несёт свои
 # node_modules (~800 МБ), поэтому без уборки ручные выкаты съедают диск.
 prune_releases() {
   local keep="${KEEP_RELEASES:-3}" kept=0 removed=0 name
@@ -222,6 +232,10 @@ prune_releases() {
 
 if health_ok && pm2 jlist | grep -qF "$RELEASE/backend/dist/index.js"; then
   log "Готово: https://$DOMAIN (релиз ${SHA:0:8})"
+  # Снаружи сервис идёт через Cloudflare и nginx: локальный health не видит
+  # ошибку прокси. Отказ здесь — сигнал, а не повод откатывать рабочий релиз.
+  curl --fail --silent --show-error "https://$DOMAIN/health" >/dev/null ||
+    echo "ВНИМАНИЕ: https://$DOMAIN/health не отвечает — проверьте nginx и Cloudflare" >&2
   # Только после подтверждённого health-check: пока новый релиз не проверен,
   # старые — единственный путь отката, и падение уборки не должно валить выкат.
   log "Уборка старых релизов"

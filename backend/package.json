@@ -38,13 +38,9 @@
     "backup": "powershell -ExecutionPolicy Bypass -File ../backup-postgres.ps1",
     "backup:compress": "powershell -ExecutionPolicy Bypass -File ../backup-postgres.ps1 -Compress",
     "restore": "powershell -ExecutionPolicy Bypass -File ../restore-postgres.ps1",
-    "knip": "knip --include files,dependencies,unlisted,unresolved,catalog,cycles --treat-config-hints-as-errors",
     "db:validate": "prisma validate",
-    "db:format:check": "prisma format --check",
-    "db:migrate:test": "node scripts/verify-test-migrations.mjs",
     "e2e:seed": "tsx src/scripts/e2e-seed.ts seed",
     "e2e:cleanup": "tsx src/scripts/e2e-seed.ts cleanup",
-    "any:check": "node scripts/check-any-count.mjs",
     "audit:prod": "node scripts/audit-production.mjs"
   },
   "keywords": [

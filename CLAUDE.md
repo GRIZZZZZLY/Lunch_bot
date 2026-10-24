@@ -11,12 +11,16 @@
   его не восстановить; `.env.production` и `.env.prod-dev` лежат в
   `frontend-new/`.
 - Сервер: `backend/`.
-- Продакшен: PostgreSQL 16 (та же версия, что в CI и
+- Продакшен: PostgreSQL 16 (та же версия, что в
   `docker-compose.production.yml`), Redis, PM2, Nginx и
   `FRONTEND_DIR=frontend-new`. Выключенный кластер `14/main` на порту 5433 —
   путь отката; `pg_dropcluster 14 main` только по решению владельца.
-- Канонический деплой — GitHub Actions, `.github/workflows/deploy.yml`. Ручной
-  запасной путь — `bash deploy-vps.sh`, он повторяет шаги workflow. Отладочная
+- CI/CD на GitHub нет. Перед каждым пушем в `main` проходят все проверки:
+  `bash scripts/check-all.sh` (git-хук `.githooks/pre-push` запускает его сам,
+  если в клоне включено `git config core.hooksPath .githooks`). Пушить в `main`
+  с `--no-verify` нельзя.
+- Выкат — только `bash deploy-vps.sh` на сервере из исходного чекаута; откат на
+  предыдущий релиз — `ROLLBACK=1 bash deploy-vps.sh`. Отладочная
   production-сборка: `ENV_SUFFIX=prod-dev bash deploy-vps.sh`.
 - Релиз на сервере — не `git pull` в рабочем каталоге, а отдельный git worktree
   на коммит: `<repo>-releases/<sha>/`, симлинк `current` на действующий,
@@ -51,21 +55,18 @@
 
 ## Проверки
 
+Во время работы — быстрые проверки затронутого пакета:
+
 ```powershell
 npm --prefix frontend-new run type-check
-npm --prefix frontend-new run type-check:e2e
 npm --prefix frontend-new run lint
 npm --prefix frontend-new test
-npm --prefix frontend-new run build
+npm --prefix frontend-new run test:e2e
 ```
 
-При изменении критического пользовательского сценария дополнительно:
-
-```powershell
-npm --prefix frontend-new run test:e2e:smoke
-```
-
-Для серверных изменений используйте команды из [AGENTS.md](AGENTS.md).
+Для серверных изменений — команды из [AGENTS.md](AGENTS.md). Перед пушем в
+`main` — полный `bash scripts/check-all.sh`; он же единственное место, где
+описан полный набор проверок.
 
 ## Документация
 

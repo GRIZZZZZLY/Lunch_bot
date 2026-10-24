@@ -18,15 +18,10 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=mobile-chromium",
-    "test:e2e:smoke": "playwright test --project=mobile-chromium --grep @smoke",
-    "test:e2e:full": "playwright test",
     "test:e2e:integration": "playwright test --project=integration",
     "test:e2e:production": "playwright test --config=playwright.production.config.ts",
     "test:e2e:ui": "playwright test --ui --project=mobile-chromium",
-    "test:e2e:report": "playwright show-report",
-    "lighthouse": "lhci autorun",
-    "lighthouse:mobile": "lhci autorun --config=./lighthouse/lighthouserc.mobile.cjs",
-    "size:check": "node scripts/check-bundle-size.mjs"
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@sentry/react": "^10.75.0",

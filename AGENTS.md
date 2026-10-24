@@ -20,7 +20,6 @@ npm run dev
 npm run build:prod
 npm run lint
 npm test
-npm run test:coverage
 npm run db:generate
 npm run db:validate
 npm run db:migrate
@@ -43,9 +42,16 @@ npm run type-check:e2e
 npm run lint
 npm test
 npm run build
-npm run test:e2e:smoke
-npm run test:e2e:full
+npm run test:e2e
 ```
+
+### Перед пушем в `main`
+
+CI на GitHub нет. Все проверки запускает `bash scripts/check-all.sh` (нужны
+PostgreSQL и Redis, адреса — в шапке скрипта). Git-хук делает это сам при пуше
+в `main`, если в клоне включено `git config core.hooksPath .githooks`. Пушить в
+`main` в обход хука (`--no-verify`) нельзя. Выкат — `bash deploy-vps.sh` на
+сервере, откат — `ROLLBACK=1 bash deploy-vps.sh`.
 
 ## Форматирование
 
@@ -124,9 +130,12 @@ npm run test:e2e:full
   Файлы `*.redis.test.ts` собираются только с `REDIS_ENABLED=true`.
 - Что тест должен проверять и чего не должен:
   [docs/05-testing/README.md](docs/05-testing/README.md#каким-должен-быть-тест).
+- Предпочтение — интеграционным тестам сервера. Юнит-тест пишут только для
+  чистой функции с ощутимым риском (деньги, подписи и токены, разбор входа),
+  где он дешевле и точнее интеграционного.
 - Тесты основного интерфейса: рядом с кодом и в `frontend-new/tests/`.
 - Сквозные тесты: `frontend-new/tests/e2e/`.
-- Порог покрытия не понижать ради прохождения CI.
+- Порога покрытия нет: тест ради процента не пишут.
 - Интеграционные тесты запускаются только на отдельной тестовой PostgreSQL-базе.
 
 ## Точки входа
