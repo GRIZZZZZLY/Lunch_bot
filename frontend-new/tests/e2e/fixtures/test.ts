@@ -47,13 +47,6 @@ const IGNORED_CONSOLE_ERRORS = [
   /Failed to load resource: net::ERR_FAILED/i,
 ];
 
-function isWebKitMockRoutingArtifact(browserName: string, message: string): boolean {
-  return (
-    browserName === 'webkit' &&
-    /127\.0\.0\.1:4174\/api\/.+due to access control checks\.?$/i.test(message)
-  );
-}
-
 export const test = base.extend<TestFixtures>({
   role: ['member', { option: true }],
   scenario: ['default', { option: true }],
@@ -99,19 +92,13 @@ export const test = base.extend<TestFixtures>({
   },
 
   diagnostics: [
-    async ({ page, api, browserName }, use, testInfo) => {
+    async ({ page, api }, use, testInfo) => {
       const pageErrors: string[] = [];
       const consoleErrors: string[] = [];
       const failedRequests: string[] = [];
 
       page.on('pageerror', (error) => {
-        // WebKit изредка помечает успешно перехваченный ответ Playwright как ошибку
-        // проверки доступа во время смены экрана. Конечное состояние интерфейса и
-        // журнал запросов всё равно проверяются ниже, поэтому исключаем только этот
-        // узкий случай для локального адреса тестового сервера.
-        if (!isWebKitMockRoutingArtifact(browserName, error.message)) {
-          pageErrors.push(error.message);
-        }
+        pageErrors.push(error.message);
       });
       page.on('console', (message) => {
         if (
@@ -136,8 +123,8 @@ export const test = base.extend<TestFixtures>({
       await use();
 
       // Даём фоновым обновлениям React Query завершиться, пока перехват API ещё
-      // действует. Иначе WebKit может отправить уже начатый запрос в Vite при
-      // закрытии контекста и создать ложную сетевую ошибку между тестами.
+      // действует. Иначе уже начатый запрос уйдёт в Vite при закрытии контекста
+      // и создаст ложную сетевую ошибку между тестами.
       if (!page.isClosed()) {
         await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
       }
