@@ -140,9 +140,7 @@ export class AdminController {
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
-      if (!hasAccess) return;
-
+      // Права уже проверены на маршруте: requireGroupAdminOverUser.
       const stats = await this.adminService.getUserStats(userId, groupId);
       
       res.json({

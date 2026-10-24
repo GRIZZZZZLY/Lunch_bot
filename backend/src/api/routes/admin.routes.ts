@@ -3,6 +3,7 @@ import { AdminController } from '../controllers/admin.controller';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { writeLimiter } from '../middleware/rate-limiter';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
+import { requireGroupAdminOverUser } from '../middleware/authorization';
 import {
   adminCleanupQuery,
   adminDebtIdParam,
@@ -48,10 +49,15 @@ router.get('/users', adminGroupQuery.middleware, (req, res) =>
  * GET /api/admin/users/:userId/stats
  * Получение статистики пользователя
  */
+/* Права — той же мидлварой, что у GET /api/polls/user-stats/:userId:
+   вызывающий администрирует группу И целевой человек в ней состоит. Раньше
+   второе условие проверял только сервис, обычным Error, и о человеке не из
+   своей группы администратор получал 500 вместо 403. */
 router.get(
   '/users/:userId/stats',
   adminUserIdParam.middleware,
   adminGroupQuery.middleware,
+  requireGroupAdminOverUser,
   (req, res) => adminController.getUserStats(req, res)
 );
 

@@ -310,13 +310,12 @@ describe('статистика участника для администрат�
     expect(response.body.data).toBeUndefined();
   });
 
-  // BUG: AdminService.getUserStats бросает «User not found in group», и
-  // контроллер отвечает 500 (и шумит в журнале ошибок) вместо отказа 403,
-  // одинакового с «не администратор» — как на /api/polls/user-stats/:userId.
-  it.failing('администратор о человеке не из своей группы получает 403, как не администратор', async () => {
+  // Регрессия: членство цели проверял только сервис, и вместо 403 приходил 500.
+  it('администратор о человеке не из своей группы получает 403, как не администратор', async () => {
     const response = await statsOf(boris, anna);
 
     expect(response.status).toBe(403);
+    expect(response.body.code).toBe('FORBIDDEN');
   });
 });
 
