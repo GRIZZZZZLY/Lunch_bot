@@ -9,6 +9,7 @@ import type { User } from '@prisma/client';
 
 import { prisma } from '../../../database/client';
 import { main } from '../../../scripts/close-expired-polls';
+import * as pollTimer from '../../../services/poll-timer.service';
 import { cleanDatabase } from '../helpers/fixtures';
 import { createFakeTelegram } from '../helpers/bot';
 
@@ -55,25 +56,52 @@ it('с голосами — завершает, пустое — отменяе�
   const expiredEmpty = await pollInOwnGroup(author, 120, []);
   const running = await pollInOwnGroup(author, 5, [voter]);
 
-  /* Завершение с голосами запускает выбор ответственного, а у него свой
-     трёхминутный таймер «никто не вызвался — рулетка». Сам этот таймер к
-     скрипту не относится; настоящий оставил бы процесс jest висеть три минуты
-     и сработал бы после закрытия базы. Подменяются только таймеры. */
-  jest.useFakeTimers({
-    doNotFake: ['Date', 'hrtime', 'nextTick', 'performance', 'queueMicrotask', 'setImmediate', 'clearImmediate'],
-  });
-  let exitCode: number;
-  try {
-    exitCode = await main();
-  } finally {
-    jest.clearAllTimers();
-    jest.useRealTimers();
-  }
+  const exitCode = await runScript();
 
   expect(exitCode).toBe(0);
-  const status = async (id: number) =>
-    (await prisma.poll.findUniqueOrThrow({ where: { id } })).status;
   expect(await status(expiredWithVotes)).toBe('COMPLETED');
   expect(await status(expiredEmpty)).toBe('CANCELLED');
   expect(await status(running)).toBe('ACTIVE');
 });
+
+/* Регрессия: голосование, на котором закрытие бросало (путь без сообщения в
+   чате зовёт завершение напрямую), обрывало скрипт целиком, и каждый
+   следующий запуск падал на той же строке — остальные висели вечно. Сбой
+   подставлен на границе одного вызова; второе голосование закрывается
+   по-настоящему. */
+it('сбой на одном голосовании не срывает обход остальных; код выхода 1', async () => {
+  const author = await prisma.user.create({ data: { telegramId: BigInt(9611), firstName: 'Автор2' } });
+  const first = await pollInOwnGroup(author, 120, [author]);
+  const second = await pollInOwnGroup(author, 120, [author]);
+  const failOnce = jest
+    .spyOn(pollTimer, 'closeExpiredPoll')
+    .mockRejectedValueOnce(new Error('boom'));
+
+  let exitCode: number;
+  try {
+    exitCode = await runScript();
+  } finally {
+    failOnce.mockRestore();
+  }
+
+  expect(exitCode).toBe(1);
+  expect([await status(first), await status(second)].sort()).toEqual(['ACTIVE', 'COMPLETED']);
+});
+
+const status = async (id: number) => (await prisma.poll.findUniqueOrThrow({ where: { id } })).status;
+
+/* Завершение с голосами запускает выбор ответственного, а у него свой
+   трёхминутный таймер «никто не вызвался — рулетка». Сам этот таймер к
+   скрипту не относится; настоящий оставил бы процесс jest висеть три минуты
+   и сработал бы после закрытия базы. Подменяются только таймеры. */
+async function runScript(): Promise<number> {
+  jest.useFakeTimers({
+    doNotFake: ['Date', 'hrtime', 'nextTick', 'performance', 'queueMicrotask', 'setImmediate', 'clearImmediate'],
+  });
+  try {
+    return await main();
+  } finally {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  }
+}

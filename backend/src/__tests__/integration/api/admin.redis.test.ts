@@ -329,11 +329,19 @@ const ROUTES: RouteCase[] = [
 ];
 
 /* Три способа НЕ быть админом группы А: рядовой участник, админ, вышедший из
-   группы, и админ другой группы. У последнего роль есть — но не здесь. */
-const OUTSIDERS: Array<[Person, string]> = [
-  ['misha', 'рядовой участник'],
-  ['inna', 'админ с неактивным членством'],
-  ['boris', 'админ другой группы'],
+   группы, и админ другой группы. У последнего роль есть — но не здесь, поэтому
+   он идёт по КАЖДОМУ маршруту: так ловится и маршрут без проверки, и проверка
+   «админ хоть где-нибудь». Первые двое упираются в ту же общую проверку роли,
+   и им хватает по маршруту на каждый источник группы: query, голосование, путь. */
+const OUTSIDER_CASES = [
+  ...ROUTES.map(route => [route.name, 'админ другой группы', 'boris', route] as const),
+  ...['GET /users', 'GET /polls/:pollId/participants', 'GET /reminder-settings/:groupId'].flatMap(name => {
+    const route = ROUTES.find(r => r.name === name)!;
+    return [
+      [name, 'рядовой участник', 'misha', route] as const,
+      [name, 'админ с неактивным членством', 'inna', route] as const,
+    ];
+  }),
 ];
 
 describe('права: админка группы только для админа ЭТОЙ группы', () => {
@@ -344,9 +352,7 @@ describe('права: админка группы только для админ
     sent = fakeBot();
   });
 
-  it.each(
-    OUTSIDERS.flatMap(([person, label]) => ROUTES.map(route => [route.name, label, person, route] as const))
-  )('%s: %s получает 403, база не меняется', async (_name, _label, person, route) => {
+  it.each(OUTSIDER_CASES)('%s: %s получает 403, база не меняется', async (_name, _label, person, route) => {
     const before = await snapshot();
     const sentBefore = sent.length;
 
@@ -753,11 +759,18 @@ describe('сводки для админа', () => {
     expect(response.body.data).toMatchObject({ pendingDebts: 150, paidDebts: 40 });
   });
 
-  it('статистику человека не из группы админ не получает', async () => {
-    const response = await call('get', `/api/admin/users/${w.user.boris}/stats?groupId=${w.groupA}`, 'clara');
+  /* Статистику человека не из группы админ не получает — 403, как у
+     постороннего: auth-security.redis.test.ts. */
 
-    expect(response.status).toBeGreaterThanOrEqual(400);
-    expect(response.body.data).toBeUndefined();
+  /* Регрессия: старые бандлы фронтенда дописывали `groupId` второй раз —
+     `?groupId=5&groupId=5`, — и восемь админских маршрутов отвечали 400.
+     Разные значения сводить нельзя: молча выбрать одно — подмена фильтра. */
+  it('повторённый одинаковый groupId работает, разный — 400', async () => {
+    const same = await call('get', `/api/admin/debtors?groupId=${w.groupA}&groupId=${w.groupA}`, 'clara');
+    const different = await call('get', `/api/admin/debtors?groupId=${w.groupA}&groupId=${w.groupB}`, 'clara');
+
+    expect(same.status).toBe(200);
+    expect(different.status).toBe(400);
   });
 });
 

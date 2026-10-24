@@ -28,7 +28,7 @@ npm run db:migrate
 Один тест:
 
 ```bash
-npm test -- src/__tests__/unit/services/poll.service.test.ts
+npm test -- src/__tests__/unit/utils/telegram-auth.test.ts
 npm test -- -t "название теста"
 ```
 

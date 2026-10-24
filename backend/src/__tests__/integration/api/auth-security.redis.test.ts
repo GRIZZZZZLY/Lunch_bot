@@ -294,22 +294,8 @@ describe('статистика участника для администрат�
       .set('Authorization', `Bearer ${caller.accessToken}`);
   }
 
-  it('администратор видит статистику участницы своей группы, не администратор — 403', async () => {
-    const own = await statsOf(vera, anna);
-    const notAdmin = await statsOf(vera, boris);
-
-    expect(own.status).toBe(200);
-    expect(notAdmin.status).toBe(403);
-    expect(notAdmin.body.data).toBeUndefined();
-  });
-
-  it('администратор не получает статистику человека не из своей группы', async () => {
-    const response = await statsOf(boris, anna);
-
-    expect(response.status).not.toBe(200);
-    expect(response.body.data).toBeUndefined();
-  });
-
+  /* «Не администратор — 403» и «администратор своей группы — 200» на этом
+     маршруте проверяет матрица прав в admin.redis.test.ts. */
   // Регрессия: членство цели проверял только сервис, и вместо 403 приходил 500.
   it('администратор о человеке не из своей группы получает 403, как не администратор', async () => {
     const response = await statsOf(boris, anna);

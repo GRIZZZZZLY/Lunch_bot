@@ -3,8 +3,5 @@ const baseConfig = require('./jest.config');
 module.exports = {
   ...baseConfig,
   globalSetup: undefined,
-  testMatch: [
-    '**/__tests__/unit/**/*.test.ts',
-    '**/bot/**/__tests__/**/*.test.ts',
-  ],
+  testMatch: ['**/__tests__/unit/**/*.test.ts'],
 };

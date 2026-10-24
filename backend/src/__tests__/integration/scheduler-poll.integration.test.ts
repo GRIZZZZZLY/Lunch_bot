@@ -2,7 +2,6 @@ import { Client } from 'pg';
 import { prisma } from '../../database/client';
 import { RecurringPollService } from '../../services/recurring-poll.service';
 import { notificationService } from '../../services/notification.service';
-import { PollService, PollAlreadyActiveError } from '../../services/poll.service';
 import { PollSchedulerService } from '../../services/poll-scheduler.service';
 
 // Держим в синхроне с SCHEDULER_ADVISORY_LOCK_KEY в poll-scheduler.service.ts
@@ -118,42 +117,8 @@ describe('RecurringPollService.executeScheduledPoll — bot-removed pre-check (i
   });
 });
 
-describe('PollService.createPoll — one ACTIVE poll per group under concurrency (integration)', () => {
-  beforeEach(cleanup);
-  afterAll(async () => {
-    await cleanup();
-    await prisma.$disconnect();
-  });
-
-  it('lets only one of two concurrent createPoll for the same group win', async () => {
-    const user = await prisma.user.create({
-      data: { telegramId: 9201n, firstName: 'Creator' },
-    });
-    const group = await prisma.group.create({
-      data: { telegramId: -9201n, title: 'Race group', isActive: true },
-    });
-    await prisma.groupMember.create({
-      data: { groupId: group.id, userId: user.id, isActive: true },
-    });
-
-    const results = await Promise.allSettled([
-      PollService.createPoll({ groupId: group.id, duration: 30, createdBy: user.id }),
-      PollService.createPoll({ groupId: group.id, duration: 30, createdBy: user.id }),
-    ]);
-
-    const fulfilled = results.filter((r) => r.status === 'fulfilled');
-    const rejected = results.filter(
-      (r): r is PromiseRejectedResult => r.status === 'rejected'
-    );
-
-    expect(fulfilled).toHaveLength(1);
-    expect(rejected).toHaveLength(1);
-    expect(rejected[0].reason).toBeInstanceOf(PollAlreadyActiveError);
-    expect(
-      await prisma.poll.count({ where: { groupId: group.id, status: 'ACTIVE' } })
-    ).toBe(1);
-  });
-});
+/* «Два одновременных создания — одно активное голосование» проверяется через
+   HTTP в api/polls-lifecycle.redis.test.ts. */
 
 describe('PollSchedulerService — single-instance advisory lock (integration)', () => {
   let holder: Client | null = null;

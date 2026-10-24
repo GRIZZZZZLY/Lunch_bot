@@ -293,6 +293,24 @@ describe('production: отладочные маршруты не подключ�
       expect(`${path} ${response.status}`).toBe(`${path} 404`);
     }
   });
+
+  /* Mini App открывается в Telegram Web внутри iframe: X-Frame-Options или
+     frame-ancestors без web.telegram.org — и вместо приложения пустая рамка.
+     За nginx адрес клиента приходит в X-Forwarded-For; без доверия прокси все
+     запросы выглядят пришедшими с адреса nginx и делят один лимит запросов. */
+  it('разрешает встраивание в Telegram Web и доверяет прокси', async () => {
+    const productionApp = await withEnv({ NODE_ENV: 'production', TRUST_PROXY: undefined }, () =>
+      createTestApp()
+    );
+
+    const response = await request(productionApp).get('/health');
+
+    expect(response.headers['x-frame-options']).toBeUndefined();
+    expect(response.headers['content-security-policy']).toMatch(
+      /frame-ancestors[^;]*https:\/\/web\.telegram\.org/
+    );
+    expect(productionApp.get('trust proxy')).toBeTruthy();
+  });
 });
 
 describe('служебные маршруты /api/metrics', () => {
@@ -575,6 +593,22 @@ describe('вход по ссылке из группы (start_param)', () => {
   it('Telegram не подтверждает членство — участником не делает, вход проходит', async () => {
     const { groupId, pollId } = await groupWithPoll();
     telegramSays('left');
+
+    await login(BORIS_TG, { start_param: `vote_${pollId}` });
+
+    expect(await membershipOf(BORIS_TG, groupId)).toBeNull();
+  });
+
+  it('сбой проверки в Telegram — участником тоже не делает', async () => {
+    const { groupId, pollId } = await groupWithPoll();
+    setBotInstance({
+      api: {
+        getChatMember: async () => {
+          throw Object.assign(new Error('Bad Request: chat not found'), { error_code: 400 });
+        },
+        sendMessage: async () => ({ message_id: 1 }),
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
 
     await login(BORIS_TG, { start_param: `vote_${pollId}` });
 

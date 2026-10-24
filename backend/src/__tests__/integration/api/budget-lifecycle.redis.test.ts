@@ -1241,6 +1241,20 @@ describe('остальные переходы долга идут через о�
       expect(results.filter(Boolean)).toHaveLength(1);
       expect(await eventsOf('STORE_RUN_MARKED_PAID')).toHaveLength(1);
     });
+
+    /* callback_data кнопки «Подтвердить» должник может прислать и сам: свой
+       долг он подтвердить не вправе — это сделало бы долг закрытым без денег. */
+    it('подтвердить магазинный долг может только инициатор забега', async () => {
+      recordingBot();
+      const runB = await storeRunOf(world.debtInB);
+      await StoreRunBudgetService.markStoreRunPaidByDebtor(runB, ANNA_TELEGRAM_ID);
+
+      await expect(
+        StoreRunBudgetService.confirmStoreRunByDebtor(runB, world.annaId, ANNA_TELEGRAM_ID)
+      ).resolves.toEqual({ error: 'forbidden' });
+      expect(await statusOf(world.debtInB)).toBe('PAID');
+      expect(await eventsOf('DEBT_CONFIRMED')).toHaveLength(0);
+    });
   });
 });
 
@@ -1691,6 +1705,19 @@ describe('чтение бюджета: реквизиты и область ко
     const response = await get('/api/budget/debts', annaToken, { activeOnly: 'true' });
 
     expect(response.body.data.map((tx: { id: number }) => tx.id)).toEqual([world.debtInB]);
+  });
+
+  /* Магазинный долг связан с командой через забег. Раньше группа забега не
+     запрашивалась вовсе, и такой долг перед вышедшим не скрывался. */
+  it('activeOnly скрывает и магазинный долг перед вышедшим из команды забега', async () => {
+    await prisma.groupMember.update({
+      where: { groupId_userId: { groupId: world.teamBId, userId: world.borisId } },
+      data: { isActive: false, leftAt: new Date() },
+    });
+
+    const response = await get('/api/budget/debts', annaToken, { activeOnly: 'true' });
+
+    expect(response.body.data.map((tx: { id: number }) => tx.id)).toEqual([world.debtInA]);
   });
 
   it('чужой userId в запросе игнорируется: долги берутся по токену', async () => {

@@ -57,7 +57,7 @@ npm --prefix frontend-new run build
 | `backend/src/__tests__/integration/bot/` | обработчики бота: настоящий `createBot()`, подменён только Telegram |
 | `backend/src/__tests__/integration/jobs/` | фоновые задачи |
 | `backend/src/__tests__/integration/helpers/` | общие помощники: вход (`api.ts`, `auth.ts`), поддельный Telegram (`bot.ts`), данные голосований (`polls.ts`), очистка базы (`fixtures.ts`), приложение (`testApp.ts`) |
-| `backend/src/__tests__/unit/` | чистые функции и логика |
+| `backend/src/__tests__/unit/` | только чистые функции, где ошибка дорогая: деньги, подписи и токены, разбор недоверенного ввода, экранирование сообщений Telegram |
 
 Файлы `*.redis.test.ts` нуждаются в настоящем Redis. Без `REDIS_ENABLED=true`
 jest их не собирает вовсе (см. `backend/jest.config.js`). Файлам
@@ -94,14 +94,14 @@ npm --prefix backend test -- --runInBand src/__tests__/integration/api
 Remove-Item Env:REDIS_ENABLED, Env:REDIS_URL, Env:ENABLE_RATE_LIMIT
 ```
 
-Последняя строка обязательна перед обычным прогоном: тесты лимитера и
-readiness ждут других значений этих переменных.
+Последняя строка обязательна перед обычным прогоном: оставленные переменные
+меняют состав набора и поведение лимитера.
 
 Один файл или тест:
 
 ```powershell
 npm --prefix backend test -- src/__tests__/integration/api/menu.routes.test.ts
-npm --prefix backend run test:unit -- src/__tests__/unit/services/poll.service.test.ts
+npm --prefix backend run test:unit -- src/__tests__/unit/utils/telegram-auth.test.ts
 npm --prefix backend test -- -t "название теста"
 ```
 

@@ -318,6 +318,17 @@ describe('отклик «Я оформлю»', () => {
     });
   });
 
+  /* Бот не поднят (процесс с PROCESS_ROLE=api или бот снят). Раньше проверка
+     «бота нет» была недостижима, и код падал ниже на обращении к API бота. */
+  it('без бота отклик всё равно назначает ответственного', async () => {
+    setBotInstance(null as unknown as Parameters<typeof setBotInstance>[0]);
+
+    const response = await volunteer('anna', world.pizza);
+
+    expect(response.status).toBe(200);
+    expect((await pizzaRow()).responsibleUserId).toBe(world.user.anna);
+  });
+
   /* Два человека нажали одновременно. Проверка «категория свободна» в обоих
      запросах видит её свободной — назначение обязано быть условной записью,
      иначе второй молча перезапишет первого, и долги уйдут не тому, кто
@@ -786,6 +797,18 @@ describe('закрытие расчёта', () => {
     expect(response.body.code).toBe('CALCULATION_NOT_READY');
     expect(await pizzaDebts()).toHaveLength(0);
     expect((await pizzaRow()).calculationStatus).toBe('PENDING');
+  });
+
+  /* Рассылка о долгах — best-effort: без бота расчёт обязан закрыться, а
+     записанные долги остаться. Раньше отсутствие бота роняло код ниже проверки. */
+  it('без бота расчёт закрывается и долги записаны', async () => {
+    await fillPizza();
+    setBotInstance(null as unknown as Parameters<typeof setBotInstance>[0]);
+
+    const response = await finalize();
+
+    expect(response.status).toBe(200);
+    expect((await pizzaDebts()).map(d => d.fromUserId)).toEqual([world.user.anna, world.user.vera]);
   });
 
   it('повторное закрытие не создаёт второй комплект и не шлёт уведомления снова', async () => {

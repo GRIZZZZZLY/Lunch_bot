@@ -8,12 +8,14 @@
  * вызываются напрямую, как в `budget-lifecycle.redis.test.ts`. Через HTTP
  * проверяется то, что потом видит человек: разбивка заказа по участникам.
  *
- * Бота в этом файле нет намеренно: рассылка необязательна, а назначение
- * ответственного и долги без неё обязаны состояться.
+ * Бота в этом файле нет намеренно (кроме одного теста сводки): рассылка
+ * необязательна, а назначение ответственного и долги без неё обязаны
+ * состояться.
  */
 import request from 'supertest';
 
 import { prisma } from '../../../database/client';
+import { setBotInstance } from '../../../bot/bot-instance';
 import { createTestApp } from '../helpers/testApp';
 import { cleanDatabase } from '../helpers/fixtures';
 import { tokenFor } from '../helpers/api';
@@ -104,6 +106,8 @@ async function buildWorld(): Promise<World> {
           winner(pizza.id, 'Пицца', 500, ['anna', 'boris']),
           winner(sushi.id, 'Суши', 700.5, ['vera']),
         ],
+        bringOwn: { count: 0, voterIds: [], voters: [] },
+        skipped: { count: 0, voterIds: [], voters: [] },
       }),
     },
   });
@@ -184,6 +188,42 @@ describe('долги из голосования', () => {
     ]);
 
     expect(await pollDebts()).toHaveLength(2);
+  });
+
+  /* Регрессия: без реквизитов ответственный видел пустой блок «Твои
+     реквизиты» — думал, что ему переведут, а должникам было некуда. Теперь в
+     сводке есть кнопка, открывающая форму реквизитов. */
+  it('ответственный без реквизитов получает в сводке кнопку их указать', async () => {
+    type Button = { web_app?: { url: string } };
+    const sent: Array<{ chatId: string; buttons: Button[] }> = [];
+    const previousUrl = process.env.WEBAPP_URL;
+    process.env.WEBAPP_URL = 'https://app.example.com';
+    setBotInstance({
+      api: {
+        sendMessage: async (
+          chatId: string | number,
+          _text: string,
+          options?: { reply_markup?: { inline_keyboard?: Button[][] } }
+        ) => {
+          sent.push({ chatId: String(chatId), buttons: options?.reply_markup?.inline_keyboard?.flat() ?? [] });
+          return { message_id: sent.length };
+        },
+        editMessageText: async () => true,
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+
+    try {
+      await PollFlowService.processResponsibleSelected(world.pollId, world.user.boris);
+    } finally {
+      setBotInstance(null as unknown as Parameters<typeof setBotInstance>[0]);
+      if (previousUrl === undefined) delete process.env.WEBAPP_URL;
+      else process.env.WEBAPP_URL = previousUrl;
+    }
+
+    const urls = sent
+      .filter(message => message.chatId === String(TELEGRAM.boris))
+      .flatMap(message => message.buttons.map(button => button.web_app?.url ?? ''));
+    expect(urls).toContain('https://app.example.com/profile?edit=payment');
   });
 });
 

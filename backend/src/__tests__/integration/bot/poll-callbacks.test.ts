@@ -12,6 +12,7 @@
 import type { User, Group, Poll } from '@prisma/client';
 
 import { prisma } from '../../../database/client';
+import { RouletteService } from '../../../services/roulette.service';
 import { addMember } from '../helpers/api';
 import { cleanDatabase, createTestGroup, createTestUser } from '../helpers/fixtures';
 import {
@@ -224,11 +225,24 @@ describe('рулетка ответственного', () => {
   });
 
   // Регрессия: прежний итог искался по id итога вместо id голосования, кнопка рулетки не работала.
-  // Тест идёт ~10 с: анимация рулетки — настоящие паузы.
+  /* Шаги анимации — настоящие паузы, около 10 с. Розыгрыш от них не зависит,
+     поэтому кадры убраны: тест проверяет выбор, а не показ. */
   it('админ группы крутит рулетку: ответственный выбран из проголосовавших', async () => {
     const w = await closedWithoutResult();
+    const noFrames = jest
+      .spyOn(
+        RouletteService.prototype as unknown as {
+          generateRouletteAnimation: (participants: string[]) => unknown;
+        },
+        'generateRouletteAnimation'
+      )
+      .mockImplementation(participants => ({ participants, steps: [] }));
 
-    await tg.receive(callback(asTg(w.admin), CHAT, `run_roulette:${w.poll.id}`));
+    try {
+      await tg.receive(callback(asTg(w.admin), CHAT, `run_roulette:${w.poll.id}`));
+    } finally {
+      noFrames.mockRestore();
+    }
 
     const result = await prisma.pollResult.findUnique({ where: { pollId: w.poll.id } });
     expect([w.member.id, w.admin.id, w.creator.id]).toContain(result?.responsibleUserId);
