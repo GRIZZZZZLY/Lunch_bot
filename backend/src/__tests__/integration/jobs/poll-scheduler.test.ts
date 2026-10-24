@@ -159,10 +159,8 @@ describe('тик планировщика', () => {
     expect(webAppUrls(report).every(url => url.startsWith('https://'))).toBe(true);
   });
 
-  // BUG: без WEBAPP_URL отчёт «меню пусто» несёт web_app-кнопку с адресом
-  // «/menu». Telegram требует https и отвергает сообщение целиком — админ не
-  // узнаёт ни о сбое, ни о кнопке «отключить».
-  it.failing('без WEBAPP_URL отчёт «меню пусто» не содержит web_app с негодным адресом', async () => {
+  // Регрессия: без WEBAPP_URL отчёт нёс web_app с адресом «/menu», и Telegram отвергал всё сообщение.
+  it('без WEBAPP_URL отчёт «меню пусто» не содержит web_app с негодным адресом', async () => {
     delete process.env.WEBAPP_URL;
     const w = await world(1);
 

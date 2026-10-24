@@ -5,7 +5,10 @@ import {
   NotificationPriority,
   NotificationResult,
 } from '../types/notification.types';
-import { createDirectLinkMiniAppUrl } from '../bot/keyboards/webapp.keyboard';
+import {
+  createDirectLinkMiniAppUrl,
+  createWebAppButton,
+} from '../bot/keyboards/webapp.keyboard';
 import { escapeHtml } from '../utils/telegram-html';
 import { getBotInstance } from '../bot/bot-instance';
 import { notificationService } from './notification.service';
@@ -66,7 +69,7 @@ export class StoreRunNotificationService {
       return [];
     }
 
-    const webappUrl = process.env.WEBAPP_URL ?? '';
+    const orderButton = createWebAppButton('📱 Заполнить заказ', `?storeRunId=${storeRunId}`);
     const initiatorName = storeRun.initiator.firstName;
     const storeName = storeRun.storeName;
     const collectUntilStr = storeRun.collectUntil.toLocaleTimeString('ru-RU', {
@@ -79,18 +82,7 @@ export class StoreRunNotificationService {
       `Напиши что тебе взять — сбор до ${collectUntilStr}.\n\n` +
       `<i>Нажми «📱 Заполнить заказ», чтобы открыть список.</i>`;
 
-    const replyMarkup = webappUrl
-      ? {
-          inline_keyboard: [
-            [
-              {
-                text: '📱 Заполнить заказ',
-                web_app: { url: `${webappUrl}?storeRunId=${storeRunId}` },
-              },
-            ],
-          ],
-        }
-      : undefined;
+    const replyMarkup = orderButton ? { inline_keyboard: [[orderButton]] } : undefined;
 
     const results: NotificationResult[] = [];
     const dmRefs: Array<{ chatId: number; messageId: number }> = [];
@@ -328,25 +320,14 @@ export class StoreRunNotificationService {
     }
 
     const itemsCount = await prisma.storeItem.count({ where: { storeRunId } });
-    const webappUrl = process.env.WEBAPP_URL ?? '';
+    const listButton = createWebAppButton('📱 Открыть список', `?storeRunId=${storeRunId}`);
     const storeName = storeRun.storeName;
 
     const message =
       `🛍 Сбор заказов по «${escapeHtml(storeName)}» закрыт по таймеру.\n` +
       `Набралось позиций: ${itemsCount}. Открой список, иди в магазин и проставь цены.`;
 
-    const replyMarkup = webappUrl
-      ? {
-          inline_keyboard: [
-            [
-              {
-                text: '📱 Открыть список',
-                web_app: { url: `${webappUrl}?storeRunId=${storeRunId}` },
-              },
-            ],
-          ],
-        }
-      : undefined;
+    const replyMarkup = listButton ? { inline_keyboard: [[listButton]] } : undefined;
 
     return notificationService.send({
       userId: Number(storeRun.initiator.telegramId),

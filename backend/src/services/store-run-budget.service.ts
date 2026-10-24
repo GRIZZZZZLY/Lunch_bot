@@ -272,14 +272,15 @@ export class StoreRunBudgetService {
         message += `• ${escapeMarkdown(debtor.firstName ?? '')} — ${formatCurrency(sub)}\n`;
       }
 
+      const paymentInfoButton = hasPayment ? null : createPaymentInfoButton();
       await bot.api.sendMessage(
         Number(storeRun.initiator.telegramId),
         message,
         {
           parse_mode: 'Markdown',
-          ...(hasPayment
-            ? {}
-            : { reply_markup: { inline_keyboard: [[createPaymentInfoButton()]] } }),
+          ...(paymentInfoButton
+            ? { reply_markup: { inline_keyboard: [[paymentInfoButton]] } }
+            : {}),
         }
       );
     } catch (error) {

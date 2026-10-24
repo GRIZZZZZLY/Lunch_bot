@@ -3,6 +3,13 @@ import { UserService } from '../../services/user.service';
 import { logger } from '../../utils/logger';
 import { PollQueryService } from '../../services/poll-query.service';
 import { escapeMarkdown } from '../../utils/telegram-html';
+import { createWebAppButton, getWebAppUrl } from '../keyboards/webapp.keyboard';
+
+/** Разметка с одной web_app-кнопкой; без пригодного адреса Mini App — без кнопки. */
+function webAppMarkup(text: string, path: string) {
+  const button = createWebAppButton(text, path);
+  return button ? { reply_markup: { inline_keyboard: [[button]] } } : {};
+}
 
 /**
  * Команда /start - регистрация пользователя + обработка deep links
@@ -30,8 +37,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
     // Обработка deep links (параметры после /start)
     const startParam = ctx.match; // Например: "menu_-1001234567"
-    const webappUrl = process.env.WEBAPP_URL ?? '';
-    if (!webappUrl) {
+    if (!getWebAppUrl()) {
       logger.warn('WEBAPP_URL is not set — web_app buttons will be unavailable');
     }
 
@@ -44,14 +50,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
         'Нажми кнопку ниже, чтобы открыть приложение:',
         {
           parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '📱 Открыть меню группы',
-                web_app: { url: `${webappUrl}?groupId=${groupId}` }
-              }
-            ]]
-          }
+          ...webAppMarkup('📱 Открыть меню группы', `?groupId=${groupId}`),
         }
       );
       return;
@@ -66,14 +65,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
         'Нажми кнопку ниже, чтобы открыть приложение:',
         {
           parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '➕ Добавить блюдо',
-                web_app: { url: `${webappUrl}?groupId=${groupId}&action=add` }
-              }
-            ]]
-          }
+          ...webAppMarkup('➕ Добавить блюдо', `?groupId=${groupId}&action=add`),
         }
       );
       return;
@@ -133,16 +125,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       // Отправляем ТОЛЬКО кнопку Web App без лишнего текста
       await ctx.reply(
         '🗳️ Голосование',
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '📱 Открыть голосование',
-                web_app: { url: `${webappUrl}?pollId=${pollId}` }
-              }
-            ]]
-          }
-        }
+        webAppMarkup('📱 Открыть голосование', `?pollId=${pollId}`)
       );
 
       logger.info('Poll Mini App button sent', { pollId });
@@ -161,16 +144,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
       await ctx.reply(
         '🛒 Открываю заказ...',
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '📱 Заполнить заказ',
-                web_app: { url: `${webappUrl}?storeRunId=${storeRunId}` },
-              },
-            ]],
-          },
-        },
+        webAppMarkup('📱 Заполнить заказ', `?storeRunId=${storeRunId}`),
       );
       logger.info('Store run Mini App button sent', { storeRunId });
       return;
@@ -180,25 +154,18 @@ export async function startCommand(ctx: BotContext): Promise<void> {
     if (startParam && startParam.toString().startsWith('poll_')) {
       const groupId = startParam.toString().replace('poll_', '');
       
-      // Проверяем доступность WebApp (только HTTPS URL)
-      const isWebAppAvailable = webappUrl && 
-        webappUrl.startsWith('https://') && 
-        !webappUrl.includes('localhost');
-      
-      if (isWebAppAvailable) {
+      const pollButton = createWebAppButton(
+        '🗳 Создать голосование',
+        `?groupId=${groupId}&action=poll`
+      );
+
+      if (pollButton) {
         await ctx.reply(
           '🗳 *Быстрое голосование*\n\n' +
           'Нажми кнопку ниже, чтобы открыть приложение и настроить голосование:',
           {
             parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [[
-                {
-                  text: '🗳 Создать голосование',
-                  web_app: { url: `${webappUrl}?groupId=${groupId}&action=poll` }
-                }
-              ]]
-            }
+            reply_markup: { inline_keyboard: [[pollButton]] },
           }
         );
       } else {
@@ -232,28 +199,11 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
     const isGroup = ctx.chat?.type !== 'private';
     
-    // Проверяем доступность WebApp (только HTTPS URL)
-    const isWebAppAvailable = webappUrl && 
-      webappUrl.startsWith('https://') && 
-      !webappUrl.includes('localhost');
-    
     // В группах web_app кнопки не работают (ограничение Telegram)
-    const replyOptions: any = { parse_mode: 'Markdown' };
-
-    if (!isGroup && isWebAppAvailable) {
-      replyOptions.reply_markup = {
-        inline_keyboard: [
-          [
-            {
-              text: '🚀 Открыть Mini App',
-              web_app: { url: webappUrl },
-            },
-          ],
-        ],
-      };
-    }
-
-    await ctx.reply(welcomeText, replyOptions);
+    await ctx.reply(welcomeText, {
+      parse_mode: 'Markdown',
+      ...(isGroup ? {} : webAppMarkup('🚀 Открыть Mini App', '')),
+    });
 
     // Логируем регистрацию
     logger.info('User started bot', {

@@ -4,6 +4,7 @@ import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { escapeMarkdown } from '../../utils/telegram-html';
+import { createWebAppButton } from '../keyboards/webapp.keyboard';
 
 /**
  * Команда /menu - открытие Mini App для управления меню
@@ -85,8 +86,8 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
     }
 
     // Кнопки для управления
-    const webappUrl = process.env.WEBAPP_URL ?? '';
-    if (!webappUrl) {
+    const appButton = createWebAppButton('🚀 Открыть Mini App');
+    if (!appButton) {
       logger.warn('WEBAPP_URL is not set — web_app buttons will be unavailable');
     }
     const botUsername = ctx.me.username;
@@ -110,12 +111,7 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
         ]
       ] : [
         // Для личных чатов - прямая web_app кнопка
-        [
-          {
-            text: '🚀 Открыть Mini App',
-            web_app: { url: webappUrl }
-          }
-        ],
+        ...(appButton ? [[appButton]] : []),
         [
           { text: '📋 Показать список', callback_data: 'show_menu_list' },
           { text: '🔍 Поиск блюда', callback_data: 'search_menu' }
@@ -250,8 +246,8 @@ export async function handleShowMenuList(ctx: any): Promise<void> {
     });
 
     await ctx.answerCallbackQuery();
-    const webappUrl = process.env.WEBAPP_URL ?? '';
-    
+    const appButton = createWebAppButton('🚀 Открыть Mini App');
+
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       reply_markup: {
@@ -263,9 +259,7 @@ export async function handleShowMenuList(ctx: any): Promise<void> {
           ]
         ] : [
           // Для личных чатов - с web_app
-          [
-            { text: '🚀 Открыть Mini App', web_app: { url: webappUrl } }
-          ],
+          ...(appButton ? [[appButton]] : []),
           [
             { text: '🔍 Поиск', callback_data: 'search_menu' },
             { text: '🔄 Обновить', callback_data: 'show_menu_list' }

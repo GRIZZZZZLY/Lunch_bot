@@ -342,6 +342,7 @@ describe('sendBudgetNotifications', () => {
     ['без реквизитов — кнопка есть', { paymentCard: null, paymentPhone: null, paymentDetails: null }, true],
     ['с реквизитами — кнопки нет', null, false],
   ])('кнопка «указать реквизиты» у ответственного: %s', async (_case, paymentInfo, hasButton) => {
+    process.env.WEBAPP_URL = 'https://app.example.com';
     if (paymentInfo) userService.getPaymentInfo.mockResolvedValue(paymentInfo);
 
     await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);

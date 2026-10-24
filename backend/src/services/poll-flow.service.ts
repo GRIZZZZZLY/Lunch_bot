@@ -352,9 +352,10 @@ export class PollFlowService {
         message += `ℹ️ ${escapeMarkdown(paymentInfo.paymentDetails)}\n`;
       }
 
+      const paymentInfoButton = missingPayment ? createPaymentInfoButton() : null;
       const keyboard = {
         inline_keyboard: [
-          ...(missingPayment ? [[createPaymentInfoButton()]] : []),
+          ...(paymentInfoButton ? [[paymentInfoButton]] : []),
           ...(paymentCard && isPaymentLink(paymentCard)
             ? [[paymentLinkButton(paymentCard)]]
             : []),

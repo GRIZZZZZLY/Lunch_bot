@@ -3,7 +3,7 @@ import { Bot } from 'grammy';
 import { logger } from '../../utils/logger';
 import { GroupService } from '../../services/group.service';
 import { UserService } from '../../services/user.service';
-import { createGroupWelcomeKeyboard } from '../keyboards/webapp.keyboard';
+import { createGroupWelcomeKeyboard, getWebAppUrl } from '../keyboards/webapp.keyboard';
 import { WELCOME_GREETING } from '../handlers/group.handlers';
 
 /**
@@ -277,16 +277,18 @@ export async function setupMenuButtonForGroup(
   chatId: number
 ) {
   try {
-    const webappUrl = process.env.WEBAPP_URL || 'http://localhost:5173';
+    const url = getWebAppUrl(`?groupId=${chatId}`);
+    if (!url) {
+      logger.warn('Menu button для группы не установлен: нет https-адреса Mini App');
+      return;
+    }
 
     await bot.api.setChatMenuButton({
       chat_id: chatId,
       menu_button: {
         type: 'web_app',
         text: '🍽 Обед',
-        web_app: {
-          url: `${webappUrl}?groupId=${chatId}`,
-        },
+        web_app: { url },
       },
     });
 
@@ -301,14 +303,10 @@ export async function setupMenuButtonForGroup(
  */
 export async function setupDefaultMenuButton(bot: Bot<BotContext>) {
   try {
-    const webappUrl = process.env.WEBAPP_URL || 'http://localhost:5173';
-
-    // Проверяем что URL использует HTTPS (требование Telegram WebApp)
-    if (!webappUrl.startsWith('https://')) {
-      logger.warn(
-        'Menu button не установлен: WebApp URL должен использовать HTTPS',
-        { webappUrl }
-      );
+    // Telegram WebApp требует HTTPS
+    const webappUrl = getWebAppUrl();
+    if (!webappUrl) {
+      logger.warn('Menu button не установлен: WebApp URL должен использовать HTTPS');
       return;
     }
 

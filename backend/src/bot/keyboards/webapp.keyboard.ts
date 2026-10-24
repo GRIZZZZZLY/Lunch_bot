@@ -3,18 +3,32 @@
  */
 import { botConfig } from '../../config/bot.config';
 
-const WEBAPP_URL = botConfig.webappUrl || process.env.WEBAPP_URL || 'http://localhost:5173';
+/**
+ * Адрес Mini App с хвостом `path` или `null`, если WEBAPP_URL для web_app не
+ * годится. Telegram принимает только https, а на сообщение с негодным адресом
+ * кнопки отвечает BUTTON_URL_INVALID и не доставляет его целиком — вместе с
+ * текстом. Localhost тоже отсекается: снаружи он недоступен. Переменная
+ * читается при каждом вызове, а не при загрузке модуля.
+ */
+export function getWebAppUrl(path: string = ''): string | null {
+  const base = process.env.WEBAPP_URL ?? '';
+  try {
+    const { protocol, hostname } = new URL(base);
+    if (protocol !== 'https:' || hostname === 'localhost') return null;
+  } catch {
+    return null;
+  }
+  return `${base}${path}`;
+}
 
 /**
- * Создать inline кнопку для открытия WebApp
+ * Inline-кнопка, открывающая Mini App, или `null`, когда адреса нет. Все
+ * web_app-кнопки собираются здесь: без адреса кнопка пропадает, а сообщение
+ * уходит без неё.
  */
 export function createWebAppButton(text: string, path: string = '') {
-  const url = path ? `${WEBAPP_URL}${path}` : WEBAPP_URL;
-  
-  return {
-    text,
-    web_app: { url }
-  };
+  const url = getWebAppUrl(path);
+  return url ? { text, web_app: { url } } : null;
 }
 
 /**
@@ -64,75 +78,5 @@ export function createVoteWebAppKeyboard(pollId: number) {
         url: createDirectLinkMiniAppUrl(`vote_${pollId}`)
       }
     ]]
-  };
-}
-
-/**
- * Клавиатура для просмотра меню (открывает WebApp)
- */
-export function createMenuWebAppKeyboard() {
-  return {
-    inline_keyboard: [[
-      createWebAppButton('📋 Открыть меню', '/menu')
-    ]]
-  };
-}
-
-/**
- * Клавиатура для создания голосования (открывает WebApp)
- */
-export function createPollWebAppKeyboard() {
-  return {
-    inline_keyboard: [[
-      createWebAppButton('➕ Создать голосование', '/poll/create')
-    ]]
-  };
-}
-
-/**
- * Клавиатура для результатов (открывает WebApp)
- */
-export function createResultsWebAppKeyboard(pollId: number) {
-  return {
-    inline_keyboard: [[
-      createWebAppButton('📊 Посмотреть результаты', `/poll/${pollId}/results`)
-    ]]
-  };
-}
-
-/**
- * Универсальная клавиатура с несколькими действиями
- * ИЗМЕНЕНО: голосование теперь на главной странице (?pollId=X вместо /poll/:id)
- */
-export function createPollActionsKeyboard(pollId: number, showResults: boolean = false) {
-  const buttons = [];
-  
-  // Кнопка голосования - ИЗМЕНЕНО: открывает главную с параметром pollId
-  buttons.push([
-    createWebAppButton('🗳️ Проголосовать', `/?pollId=${pollId}`)
-  ]);
-  
-  // Кнопка результатов (если голосование завершено)
-  if (showResults) {
-    buttons.push([
-      createWebAppButton('📊 Результаты', `/poll/${pollId}/results`)
-    ]);
-  }
-  
-  return {
-    inline_keyboard: buttons
-  };
-}
-
-/**
- * Клавиатура для ответственного за заказ
- * ИЗМЕНЕНО: убрана кнопка "Детали заказа", так как /poll/:id/order больше не существует
- */
-export function createResponsibleKeyboard(pollId: number) {
-  return {
-    inline_keyboard: [
-      [createWebAppButton('🏠 Главная', '/')],
-      [createWebAppButton('💰 Информация о платежах', '/profile')]
-    ]
   };
 }

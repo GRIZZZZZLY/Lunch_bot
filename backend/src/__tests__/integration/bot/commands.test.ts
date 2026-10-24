@@ -161,13 +161,9 @@ describe('/start с deep link открывает нужный экран', () =>
   });
 });
 
-/* BUG: без WEBAPP_URL эти ответы собирают web_app с адресом вида
-   «?groupId=…» или «» — Telegram отвергает такое сообщение целиком
-   (BUTTON_URL_INVALID), и человек не получает ничего. Сам код при этом
-   пишет в лог «web_app buttons will be unavailable». Правильно — как у
-   /start без параметров: нет пригодного адреса — нет web_app-кнопки. */
+// Регрессия: без WEBAPP_URL кнопка получала адрес «?groupId=…» или «», и Telegram отвергал всё сообщение.
 describe('без WEBAPP_URL web_app-кнопок с негодным адресом быть не должно', () => {
-  it.failing.each(['/start menu_-100700', '/start add_-100700', '/start storerun_42', '/app', '/help'])(
+  it.each(['/start menu_-100700', '/start add_-100700', '/start storerun_42', '/app', '/help'])(
     '%s',
     async text => {
       setWebApp(undefined);

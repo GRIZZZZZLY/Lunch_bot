@@ -33,6 +33,7 @@ jest.mock('../../../services/user.service', () => ({
 }));
 
 jest.mock('../../../bot/keyboards/webapp.keyboard', () => ({
+  ...jest.requireActual('../../../bot/keyboards/webapp.keyboard'),
   createGroupWelcomeKeyboard: jest.fn(() => ({ inline_keyboard: [] })),
 }));
 

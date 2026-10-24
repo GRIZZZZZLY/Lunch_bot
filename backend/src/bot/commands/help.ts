@@ -1,4 +1,5 @@
 import { BotContext } from '../../types/bot.types';
+import { createWebAppButton } from '../keyboards/webapp.keyboard';
 /**
  * Команда /help - показать помощь
  */
@@ -12,19 +13,10 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const webappUrl = process.env.WEBAPP_URL ?? '';
+  const appButton = createWebAppButton('🚀 Открыть Mini App');
   await ctx.reply(helpText, {
     parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: '🚀 Открыть Mini App',
-            web_app: { url: webappUrl },
-          },
-        ],
-      ],
-    },
+    ...(appButton ? { reply_markup: { inline_keyboard: [[appButton]] } } : {}),
   });
 }
 

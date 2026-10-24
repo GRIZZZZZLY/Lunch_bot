@@ -107,10 +107,7 @@ export const botConfig = {
     url: process.env.VITE_APP_URL || 'https://your-domain.com/miniapp',
     shortName: process.env.MINI_APP_SHORT_NAME || 'app',
   },
-  
-  // WebApp URL
-  webappUrl: process.env.WEBAPP_URL || 'http://localhost:5173',
-  
+
   // Функции
   features: {
     // Включить систему голосований

@@ -229,6 +229,7 @@ describe('notifyStoreRunSettled', () => {
       false,
     ],
   ])('инициатор %s', async (_case, paymentInfo, expectButton) => {
+    process.env.WEBAPP_URL = 'https://app.example.com';
     users.getPaymentInfo.mockResolvedValue(paymentInfo);
     settled([{ fromUserId: 2 }]);
 

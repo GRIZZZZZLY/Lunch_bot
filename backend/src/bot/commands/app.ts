@@ -1,6 +1,7 @@
 import { BotContext } from '../../types/bot.types';
 import { UserService } from '../../services/user.service';
 import { logger } from '../../utils/logger';
+import { createWebAppButton } from '../keyboards/webapp.keyboard';
 
 /**
  * Команда /app - быстрое открытие Mini App
@@ -31,8 +32,8 @@ export async function appCommand(ctx: BotContext): Promise<void> {
       return;
     }
 
-    const webappUrl = process.env.WEBAPP_URL ?? '';
-    if (!webappUrl) {
+    const appButton = createWebAppButton('🚀 Открыть Mini App');
+    if (!appButton) {
       logger.warn('WEBAPP_URL is not set — web_app buttons will be unavailable');
     }
     const isGroup = ctx.chat?.type !== 'private';
@@ -86,12 +87,7 @@ export async function appCommand(ctx: BotContext): Promise<void> {
           ]
         ] : [
           // Для личных чатов - с web_app кнопкой
-          [
-            {
-              text: '🚀 Открыть Mini App',
-              web_app: { url: webappUrl }
-            }
-          ],
+          ...(appButton ? [[appButton]] : []),
           [
             { text: '📖 Команды', callback_data: 'help' },
             { text: '🍽️ Меню', callback_data: 'menu' }

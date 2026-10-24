@@ -209,11 +209,13 @@ describe('клавиатуры Mini App', () => {
   });
 
   it('web_app-кнопка получает путь внутри Mini App', () => {
-    expect(createWebAppButton('Меню', '/menu').web_app.url).toMatch(/\/menu$/);
+    process.env.WEBAPP_URL = 'https://app.example.com';
+    expect(createWebAppButton('Меню', '/menu')?.web_app.url).toMatch(/\/menu$/);
   });
 
   it('без пути кнопка ведёт в корень', () => {
-    expect(createWebAppButton('Главная').web_app.url).not.toMatch(/\/$/);
+    process.env.WEBAPP_URL = 'https://app.example.com';
+    expect(createWebAppButton('Главная')?.web_app.url).not.toMatch(/\/$/);
   });
 
   it('приветствие группы: opt-in callback и ссылка на меню группы', () => {

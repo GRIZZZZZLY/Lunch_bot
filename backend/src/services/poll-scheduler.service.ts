@@ -14,6 +14,7 @@ import {
 import { closeExpiredPoll, restoreActiveTimers } from './poll-timer.service';
 import type { TelegramSender } from '../types/bot.types';
 import { escapeMarkdown } from '../utils/telegram-html';
+import { createWebAppButton } from '../bot/keyboards/webapp.keyboard';
 
 /**
  * Ключ Postgres advisory-lock для single-instance гарантии scheduler'а.
@@ -375,7 +376,7 @@ export class PollSchedulerService {
         );
       } else if (result.status === 'FAILED_NO_MENU') {
         // Ошибка - меню пусто
-        const webAppUrl = process.env.WEBAPP_URL || '';
+        const menuButton = createWebAppButton('🍽️ Настроить меню', '/menu');
 
         await this.botInstance.api.sendMessage(
           adminTelegramId,
@@ -390,12 +391,7 @@ export class PollSchedulerService {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [
-                  {
-                    text: '🍽️ Настроить меню',
-                    web_app: { url: `${webAppUrl}/menu` },
-                  },
-                ],
+                ...(menuButton ? [[menuButton]] : []),
                 [
                   {
                     text: '⏸️ Отключить авто',
