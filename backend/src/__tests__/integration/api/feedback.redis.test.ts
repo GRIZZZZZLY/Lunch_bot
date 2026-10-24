@@ -28,7 +28,8 @@ let app: ReturnType<typeof createTestApp>;
 const ANNA_TG = 740000101;
 
 const sent: Array<{ chatId: string; text: string }> = [];
-const telegram = { fail: false };
+/** `fail` — Telegram не принимает ничего; `failFor` — не принимает для одного чата. */
+const telegram: { fail: boolean; failFor?: string } = { fail: false };
 
 let annaToken: string;
 
@@ -46,7 +47,7 @@ beforeAll(() => {
   feedbackService.initialize({
     api: {
       sendMessage: async (chatId: string, text: string) => {
-        if (telegram.fail) {
+        if (telegram.fail || telegram.failFor === String(chatId)) {
           throw Object.assign(new Error('Bad Gateway: telegram internal 7f3a'), { error_code: 502 });
         }
         sent.push({ chatId: String(chatId), text });
@@ -60,6 +61,7 @@ beforeEach(async () => {
   await cleanDatabase();
   sent.length = 0;
   telegram.fail = false;
+  telegram.failFor = undefined;
   await prisma.user.create({ data: { telegramId: BigInt(ANNA_TG), firstName: 'Анна' } });
   annaToken = await tokenFor(app, ANNA_TG);
 });
@@ -122,10 +124,18 @@ describe('POST /api/feedback', () => {
     expect(JSON.stringify(response.body)).not.toContain('7f3a');
   });
 
-  // BUG: сервис берёт только первый id из ADMIN_USER_IDS, остальные админы письма не получают.
-  it.failing('письмо получает каждый админ из ADMIN_USER_IDS', async () => {
+  // Регрессия: письмо получал только первый id из ADMIN_USER_IDS.
+  it('письмо получает каждый админ из ADMIN_USER_IDS', async () => {
     await sendFeedback({ message: 'Спасибо за бота' }).expect(200);
 
     expect(sent.map(m => m.chatId).sort()).toEqual([...ADMIN_IDS].sort());
+  });
+
+  it('один недоступный админ не лишает письма остальных', async () => {
+    telegram.failFor = ADMIN_IDS[0];
+
+    await sendFeedback({ message: 'Спасибо за бота' }).expect(200);
+
+    expect(sent.map(m => m.chatId)).toEqual([ADMIN_IDS[1]]);
   });
 });

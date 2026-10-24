@@ -16,13 +16,17 @@ interface FeedbackData {
  */
 class FeedbackService {
   private bot: TelegramSender | null = null;
-  private adminUserId: string;
+  /* Все id из ADMIN_USER_IDS. Раньше брался только первый, и остальные
+     админы, перечисленные в настройке, писем не получали. */
+  private adminUserIds: string[];
 
   constructor() {
-    // ID создателя бота из .env
-    this.adminUserId = process.env.ADMIN_USER_IDS?.split(',')[0] || '';
-    
-    if (!this.adminUserId) {
+    this.adminUserIds = (process.env.ADMIN_USER_IDS ?? '')
+      .split(',')
+      .map(id => id.trim())
+      .filter(Boolean);
+
+    if (this.adminUserIds.length === 0) {
       logger.warn('⚠️ ADMIN_USER_IDS not set in .env - feedback will not work');
     }
   }
@@ -33,7 +37,7 @@ class FeedbackService {
   initialize(bot: TelegramSender): void {
     this.bot = bot;
     logger.info('✅ Feedback service initialized', {
-      adminUserId: this.adminUserId
+      adminCount: this.adminUserIds.length,
     });
   }
 
@@ -43,16 +47,17 @@ class FeedbackService {
   async sendToAdmin(data: FeedbackData): Promise<void> {
     logger.info('🔵 [FeedbackService] sendToAdmin called', {
       hasBot: !!this.bot,
-      adminUserId: this.adminUserId,
+      adminCount: this.adminUserIds.length,
       messageLength: data.message?.length,
     });
 
-    if (!this.bot) {
+    const bot = this.bot;
+    if (!bot) {
       logger.error('❌ [FeedbackService] Bot not initialized!');
       throw new Error('Bot not initialized');
     }
 
-    if (!this.adminUserId) {
+    if (this.adminUserIds.length === 0) {
       logger.error('❌ [FeedbackService] Admin user ID not configured!');
       throw new Error('Admin user ID not configured');
     }
@@ -73,17 +78,32 @@ class FeedbackService {
       feedbackMessage += `\n⏰ ${new Date().toLocaleString('ru-RU')}`;
 
       logger.info('📤 [FeedbackService] Sending message to Telegram', {
-        adminUserId: this.adminUserId,
+        adminCount: this.adminUserIds.length,
         messageLength: feedbackMessage.length,
       });
 
-      // Отправляем админу с HTML parse_mode
-      await this.bot.api.sendMessage(this.adminUserId, feedbackMessage, {
-        parse_mode: 'HTML',
-      });
+      /* Каждому админу отдельно и независимо: один заблокировавший бота
+         админ не должен лишать письма остальных. Ошибка запроса — только если
+         не дошло никому. */
+      const results = await Promise.allSettled(
+        this.adminUserIds.map(adminId =>
+          bot.api.sendMessage(adminId, feedbackMessage, { parse_mode: 'HTML' })
+        )
+      );
+      const failed = results.filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected'
+      );
+      for (const failure of failed) {
+        logger.warn('⚠️ [FeedbackService] Feedback not delivered to one admin', {
+          error: failure.reason,
+        });
+      }
+      if (failed.length === results.length) {
+        throw failed[0].reason;
+      }
 
-      logger.info('✅ [FeedbackService] Message sent successfully to admin', { 
-        adminId: this.adminUserId, 
+      logger.info('✅ [FeedbackService] Message sent successfully to admin', {
+        delivered: results.length - failed.length,
         userId,
         messageLength: message.length
       });
