@@ -519,32 +519,42 @@ export class CategoryOrderService {
     categoryOrderId: number,
     costs: UpdateCostsData
   ): Promise<CategoryOrder> {
-    const deliveryCost = costs.deliveryCost ?? 0;
-    const serviceFee = costs.serviceFee ?? 0;
-    const tip = costs.tip ?? 0;
+    /* Незаданная сумма — «не менять», а не ноль: схема переводит в неё null и
+       пустую строку, и правка одних чаевых раньше стирала доставку и сервис.
+       Ноль — значение, он записывается. Сумма уходит в колонку Decimal из
+       строки: число 0.07 Prisma сохранила бы как 0.07000000000000001. */
+    const given = (value: number | undefined) =>
+      value === undefined ? undefined : toDecimal(value);
+    const deliveryCost = given(costs.deliveryCost);
+    const serviceFee = given(costs.serviceFee);
+    const tip = given(costs.tip);
 
     /* Девять условий в одном `if` (Repowise: «complex conditional, impact
        −2.2») сведены к одной проверке на три поля. Смысл тот же, но проверка
        названа один раз, а не размножена по полям — из-за размножения при
        добавлении четвёртой суммы одно из трёх сравнений однажды забудут. */
-    if (![deliveryCost, serviceFee, tip].every(isAllowedAmount)) {
+    const amounts = [costs.deliveryCost, costs.serviceFee, costs.tip];
+    if (!amounts.every(value => value === undefined || isAllowedAmount(value))) {
       throw new OrderInputError('Costs must be non-negative numbers');
     }
 
     try {
-      // Get current total items amount
+      // Сумма позиций и прежние расходы — для тех, что не меняются
       const categoryOrder = await prisma.categoryOrder.findUnique({
         where: { id: categoryOrderId },
         select: {
           totalItemsAmount: true,
+          deliveryCost: true,
+          serviceFee: true,
+          tip: true,
         },
       });
 
       const { totalAdditionalCosts, totalAmount } = computeTotals({
         itemsAmount: categoryOrder?.totalItemsAmount,
-        deliveryCost,
-        serviceFee,
-        tip,
+        deliveryCost: deliveryCost ?? categoryOrder?.deliveryCost,
+        serviceFee: serviceFee ?? categoryOrder?.serviceFee,
+        tip: tip ?? categoryOrder?.tip,
       });
 
       const result = await prisma.categoryOrder.updateMany({
