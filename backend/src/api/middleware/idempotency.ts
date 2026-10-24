@@ -19,6 +19,7 @@
  * - Ключ скоупится по userId, чтобы атакующий не подсунул чужой Idempotency-Key.
  */
 
+import { createHash } from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 import { cacheService } from '../../services/cache.service';
 import { logger } from '../../utils/logger';
@@ -35,9 +36,11 @@ type CachedResponse = {
   contentType?: string;
 };
 
+/* `fingerprint` — хеш запроса, под которым ключ занят. Необязателен только
+   ради маркеров, записанных до его появления: они живут не дольше TTL. */
 type Marker =
-  | { state: 'inflight'; at: number }
-  | { state: 'done'; response: CachedResponse; at: number };
+  | { state: 'inflight'; at: number; fingerprint?: string }
+  | { state: 'done'; response: CachedResponse; at: number; fingerprint?: string };
 
 export interface IdempotencyOptions {
   /** TTL для закешированного ответа в секундах (по умолчанию 24h). */
@@ -68,6 +71,37 @@ function buildCacheKey(
   clientKey: string
 ): string {
   return `idem:${scope}:${operation}:${userScope}:${clientKey}`;
+}
+
+/**
+ * Отпечаток запроса: метод, путь с query и тело.
+ *
+ * Без него ключ связан только с маршрутом, и тот же ключ с ДРУГИМ телом
+ * получал закешированный ответ первого запроса: расписание для группы Б
+ * «создавалось» ответом 201 про группу А, а в базе для Б не было ничего.
+ * В Redis лежит хеш, а не сам запрос — query и тело могут нести личные данные.
+ */
+function requestFingerprint(req: Request): string {
+  return createHash('sha256')
+    .update(`${req.method} ${req.originalUrl}\n${JSON.stringify(req.body ?? null)}`)
+    .digest('hex');
+}
+
+/** Ключ уже занят другим запросом: повторять его с новым телом нельзя. */
+function refuseReusedKey(res: Response): void {
+  /* 422 и код IDEMPOTENCY_KEY_INVALID: клиент сам генерирует ключ на каждое
+     действие, так что это ошибка клиента, а для неё у фронта уже есть текст
+     «приложение устарело». Отдельный код потребовал бы нового текста там же. */
+  res.status(422).json({
+    success: false,
+    error: 'Idempotency-Key reused with a different request',
+    code: 'IDEMPOTENCY_KEY_INVALID',
+    message: 'Этот Idempotency-Key уже использован для другого запроса.',
+  });
+}
+
+function isSameRequest(marker: Marker, fingerprint: string): boolean {
+  return marker.fingerprint === undefined || marker.fingerprint === fingerprint;
 }
 
 export function createIdempotencyMiddleware(options: IdempotencyOptions) {
@@ -122,6 +156,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
       '_'
     );
     const cacheKey = buildCacheKey(scope, operation, userScope, rawKey);
+    const fingerprint = requestFingerprint(req);
 
     // 1) Проверяем существующий маркер.
     let marker: Marker | undefined;
@@ -140,6 +175,11 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
         return;
       }
       return next();
+    }
+
+    if (marker && !isSameRequest(marker, fingerprint)) {
+      refuseReusedKey(res);
+      return;
     }
 
     if (marker?.state === 'done') {
@@ -166,7 +206,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
 
     // 2) Ставим in-flight маркер. SET с коротким TTL — если процесс упадёт,
     //    маркер сам исчезнет и пользователь сможет ретраить.
-    const inflight: Marker = { state: 'inflight', at: Date.now() };
+    const inflight: Marker = { state: 'inflight', at: Date.now(), fingerprint };
     const acquisition = await cacheService.setIfAbsent(
       cacheKey,
       inflight,
@@ -189,6 +229,10 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
 
     if (acquisition === 'exists') {
       const existing = await cacheService.get<Marker>(cacheKey);
+      if (existing && !isSameRequest(existing, fingerprint)) {
+        refuseReusedKey(res);
+        return;
+      }
       if (existing?.state === 'done') {
         metricsService.incrementIdempotencyReplay(scope, 'replay');
         res.setHeader(REPLAYED_HEADER, 'true');
@@ -222,6 +266,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
         const done: Marker = {
           state: 'done',
           at: Date.now(),
+          fingerprint,
           response: {
             status: res.statusCode,
             body,

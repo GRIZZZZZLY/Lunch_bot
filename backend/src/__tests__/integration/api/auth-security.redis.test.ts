@@ -190,10 +190,8 @@ describe('идемпотентность изменяющих запросов (
     expect(rows.map(row => row.id)).toEqual([retried.body.data.id]);
   });
 
-  // BUG: ключ не связан с телом запроса — повтор ключа с ДРУГИМ телом получает
-  // 201 с расписанием группы А, хотя для группы Б ничего не создано, и клиент
-  // считает операцию выполненной. Ожидается отказ (4xx), а не чужой ответ.
-  it.failing('тот же ключ с другим телом отклоняется, а не получает чужой ответ', async () => {
+  // Регрессия: ключ не был связан с телом, и запрос для группы Б получал 201 группы А.
+  it('тот же ключ с другим телом отклоняется, а не получает чужой ответ', async () => {
     const key = idemKey('reuse');
 
     const first = await createSchedule(key, scheduleFor(groupA));
@@ -201,8 +199,8 @@ describe('идемпотентность изменяющих запросов (
 
     expect(first.status).toBe(201);
     expect(await prisma.recurringPoll.count({ where: { groupId: groupB } })).toBe(0);
-    expect(reused.status).toBeGreaterThanOrEqual(400);
-    expect(reused.status).toBeLessThan(500);
+    expect(reused.status).toBe(422);
+    expect(reused.body.code).toBe('IDEMPOTENCY_KEY_INVALID');
   });
 });
 
