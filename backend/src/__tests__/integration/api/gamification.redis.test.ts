@@ -500,8 +500,8 @@ describe('голос через API → геймификация', () => {
     await expectVoteXpEarned();
   });
 
-  // BUG: not wired — QuestService.updateQuestProgress и GamificationService.updateStreak нигде не вызываются, прогресс квестов и серия голосов не меняются никогда.
-  it.failing('голос продвигает квест DAILY_VOTE и серию голосов', async () => {
+  // Регрессия: updateQuestProgress и updateStreak никто не вызывал, квест и серия голосов не менялись.
+  it('голос продвигает квест DAILY_VOTE и серию голосов', async () => {
     await prisma.quest.create({
       data: {
         key: 'DAILY_VOTE',

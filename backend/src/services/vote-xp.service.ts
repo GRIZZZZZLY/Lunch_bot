@@ -7,6 +7,7 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { GamificationService } from './gamification.service';
+import { QuestService } from './quest.service';
 import {
   getXPReward,
   isMultiplierAvailable,
@@ -58,6 +59,27 @@ export class VoteXpService {
       logger.info(`XP awarded: ${xpAmount} to user ${userId} for voting`);
     } catch (xpError) {
       logger.error('Failed to award XP for vote:', xpError);
+    }
+  }
+
+  /**
+   * Серия голосов и квест DAILY_VOTE — раз на одно действие голосования, а не
+   * на каждое блюдо: выбор трёх блюд одним запросом — один голос.
+   *
+   * Обе функции существовали, но их никто не вызывал, поэтому серия и квест
+   * не менялись никогда. Шаги идут по очереди (оба могут создавать
+   * userStats), и сбой любого гасится здесь, как у XP: голос уже принят.
+   */
+  static async recordVoteAction(userId: number): Promise<void> {
+    try {
+      await GamificationService.updateStreak(userId);
+    } catch (error) {
+      logger.error('Failed to update vote streak:', error);
+    }
+    try {
+      await QuestService.updateQuestProgress(userId, 'DAILY_VOTE');
+    } catch (error) {
+      logger.error('Failed to update vote quest:', error);
     }
   }
 

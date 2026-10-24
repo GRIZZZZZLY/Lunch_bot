@@ -365,6 +365,7 @@ export class VoteService {
             VoteXpService.awardVoteXp(userId, pollId, menuItemId)
           )
         );
+        await VoteXpService.recordVoteAction(userId);
 
         logger.info(
           `Multiple votes created: user ${userId} voted for ${newlyCreatedItemIds.length} new items in poll ${pollId}`
@@ -468,6 +469,7 @@ export class VoteService {
           VoteXpService.awardVoteXp(userId, pollId, menuItemId)
         )
       );
+      await VoteXpService.recordVoteAction(userId);
       eventBus.emit('poll_updated', {
         pollId,
         type: 'vote_added',
@@ -538,6 +540,7 @@ export class VoteService {
          не даёт начислить дважды за то же блюдо. Раньше этот путь — тот, что
          зовёт Mini App, — опыта не давал вовсе. */
       await VoteXpService.awardVoteXp(data.userId, data.pollId, data.menuItemId);
+      await VoteXpService.recordVoteAction(data.userId);
 
       logger.info(
         `Vote upserted: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`
