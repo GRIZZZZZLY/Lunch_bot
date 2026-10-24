@@ -23,23 +23,17 @@ export type E2ERole =
 
 export type ScenarioName =
   | 'default'
-  | 'empty'
-  | 'groups-none'
   | 'groups-multiple'
   | 'active-poll-unvoted'
   | 'active-poll-voted'
   | 'completed-poll'
-  | 'menu-empty'
-  | 'menu-error'
   | 'auth-error'
   | 'auth-missing-init-data'
   | 'expired-session'
   | 'store-collecting'
   | 'store-shopping'
   | 'store-settled'
-  | 'store-cancelled'
   | 'store-forbidden'
-  | 'store-not-found'
   | 'budget-debtor'
   | 'budget-responsible'
   | 'suggestions'
@@ -78,7 +72,6 @@ export interface E2EState {
   suggestions: MenuSuggestion[];
   paymentInfo: { paymentPhone?: string; paymentCard?: string; paymentDetails?: string };
   failures: Record<string, FailureRule>;
-  delays: Record<string, number>;
   requests: RequestRecord[];
   unexpectedRequests: string[];
   expectedNetworkFailures: string[];
@@ -493,7 +486,6 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
       paymentCard: 'https://www.tinkoff.ru/rm/test-link',
     },
     failures: {},
-    delays: {},
     requests: [],
     unexpectedRequests: [],
     expectedNetworkFailures: [],
@@ -504,12 +496,6 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
     protectedRequestExpired: false,
   };
 
-  if (name === 'empty') {
-    state.menu = [];
-    state.history = [];
-    state.paymentInfo = {};
-  }
-  if (name === 'groups-none') state.groups = [];
   if (name === 'groups-multiple') {
     state.groups.push({
       id: 2,
@@ -540,14 +526,6 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
     if (name === 'active-poll-voted') state.myVotes[active.id] = [11];
   }
   if (name === 'completed-poll') state.polls = [];
-  if (name === 'menu-empty') state.menu = [];
-  if (name === 'menu-error') {
-    state.failures['GET /menu'] = {
-      status: 500,
-      error: 'Меню временно недоступно',
-      code: 'INTERNAL_ERROR',
-    };
-  }
   if (name === 'auth-error') state.validateAuth = false;
   if (name === 'auth-missing-init-data') {
     state.initData = '';
@@ -562,19 +540,11 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
     if (name === 'store-collecting') state.storeRuns = [makeStoreRun('COLLECTING', currentIsInitiator)];
     if (name === 'store-shopping') state.storeRuns = [makeStoreRun('SHOPPING', currentIsInitiator)];
     if (name === 'store-settled') state.storeRuns = [makeStoreRun('SETTLED', currentIsInitiator)];
-    if (name === 'store-cancelled') state.storeRuns = [makeStoreRun('CANCELLED', currentIsInitiator)];
     if (name === 'store-forbidden') {
       state.failures['GET /store-runs/601'] = {
         status: 403,
         error: 'Вы не состоите в этой группе',
         code: 'FORBIDDEN',
-      };
-    }
-    if (name === 'store-not-found') {
-      state.failures['GET /store-runs/999'] = {
-        status: 404,
-        error: 'Закупка не найдена',
-        code: 'NOT_FOUND',
       };
     }
   }

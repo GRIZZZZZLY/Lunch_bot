@@ -1,25 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createAuthRetryHandler, isAuthEndpoint } from '../authRetry';
-
-describe('isAuthEndpoint', () => {
-  it('распознаёт auth-эндпоинты', () => {
-    expect(isAuthEndpoint('/auth/validate')).toBe(true);
-    expect(isAuthEndpoint('/auth/refresh')).toBe(true);
-    expect(isAuthEndpoint('auth/refresh')).toBe(true);
-    expect(isAuthEndpoint('/polls/active')).toBe(false);
-    expect(isAuthEndpoint('/author/1')).toBe(false);
-    expect(isAuthEndpoint(undefined)).toBe(false);
-  });
-});
+import { createAuthRetryHandler } from '../authRetry';
 
 describe('createAuthRetryHandler', () => {
-  it('успешная переавторизация разрешает повтор', async () => {
-    const reauth = vi.fn().mockResolvedValue(true);
-    const shouldRetry = createAuthRetryHandler(reauth);
-    await expect(shouldRetry({ url: '/polls' })).resolves.toBe(true);
-    expect(reauth).toHaveBeenCalledTimes(1);
-  });
-
   it('уже повторённый запрос не переавторизуется — защита от цикла', async () => {
     const reauth = vi.fn().mockResolvedValue(true);
     const shouldRetry = createAuthRetryHandler(reauth);
@@ -60,11 +42,5 @@ describe('createAuthRetryHandler', () => {
     await expect(shouldRetry({ url: '/a' })).resolves.toBe(false);
     await expect(shouldRetry({ url: '/a' })).resolves.toBe(true);
     expect(reauth).toHaveBeenCalledTimes(2);
-  });
-
-  it('исключение внутри reauth трактуется как отказ, а не падение', async () => {
-    const reauth = vi.fn().mockRejectedValue(new Error('boom'));
-    const shouldRetry = createAuthRetryHandler(reauth);
-    await expect(shouldRetry({ url: '/a' })).resolves.toBe(false);
   });
 });

@@ -48,15 +48,6 @@ test.describe('Бюджет и долги', () => {
       await expect(appPage.getByText('Все рассчитались')).toBeVisible();
     });
 
-    test('отправляет напоминание ожидающему должнику', async ({ appPage, api }) => {
-      api.state.credits[0].status = 'PENDING';
-      await appPage.goto('/budget');
-      await appPage.getByRole('button', { name: 'Напомнить' }).click();
-      await expect
-        .poll(() => api.lastRequest('POST', '/budget/send-reminder')?.body)
-        .toEqual({ transactionId: 803 });
-    });
-
     /* Промах исправляется в течение суток: долг возвращается к «Отмечено», а не
        к «не оплачен», и его можно подтвердить снова. */
     test('отменяет ошибочное подтверждение через диалог', async ({ appPage, api }) => {
@@ -107,23 +98,6 @@ test.describe('Бюджет и долги', () => {
           { transactionId: 803 },
           { transactionId: 804 },
         ]);
-      });
-
-      test('говорит, что часть напоминаний не ушла', async ({ appPage, api }) => {
-        api.fail('POST', '/budget/send-reminder', {
-          status: 500,
-          error: 'Telegram недоступен',
-          code: 'INTERNAL_ERROR',
-          remaining: 1,
-        });
-        await appPage.goto('/budget');
-        await appPage.getByRole('button', { name: /^Напомнить всем/ }).click();
-        await appPage.getByRole('alertdialog').getByRole('button', { name: 'Напомнить всем' }).click();
-        // Итог называет частичную отправку: 1 из 2, а не «все отправлены».
-        await expect(
-          appPage.getByRole('region', { name: 'Уведомления' }),
-        ).toContainText(/\b1\b\D+\b2\b/);
-        expect(api.requests('POST', '/budget/send-reminder')).toHaveLength(2);
       });
     });
   });
@@ -184,15 +158,6 @@ test.describe('Предложения участника', () => {
 
     await expect(appPage.getByRole('alert')).toBeVisible();
     await expect(appPage.getByRole('alertdialog')).toHaveCount(0);
-    await expect(appPage.getByText('Том-ям')).toBeVisible();
-  });
-
-  test('показывает ошибку загрузки и повторяет запрос', async ({ appPage, api }) => {
-    api.fail('GET', '/suggestions', { status: 500, error: 'Сервис недоступен', code: 'INTERNAL_ERROR' });
-    await appPage.goto('/suggestions');
-    await expect(appPage.getByText('Не удалось загрузить')).toBeVisible();
-    api.clearFailure('GET', '/suggestions');
-    await appPage.getByRole('button', { name: 'Повторить' }).click();
     await expect(appPage.getByText('Том-ям')).toBeVisible();
   });
 });

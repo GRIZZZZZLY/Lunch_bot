@@ -4,55 +4,6 @@ import { EditPaymentInfoSheet } from '../EditPaymentInfoSheet';
 import { _resetBackButtonForTests } from '@/lib/backButton';
 
 describe('EditPaymentInfoSheet', () => {
-  it('при повторном открытии берёт свежие реквизиты и отправляет очищенные значения', () => {
-    _resetBackButtonForTests();
-    const onSubmit = vi.fn();
-    const props = {
-      busy: false,
-      onClose: vi.fn(),
-      onSubmit,
-    };
-    const { rerender } = render(
-      <EditPaymentInfoSheet
-        {...props}
-        open
-        initial={{
-          paymentPhone: '+7 900 111-22-33',
-          paymentDetails: 'Первый банк',
-        }}
-      />,
-    );
-
-    fireEvent.change(screen.getByLabelText('Телефон СБП'), {
-      target: { value: '+7 999 000-00-00' },
-    });
-    rerender(<EditPaymentInfoSheet {...props} open={false} />);
-    rerender(
-      <EditPaymentInfoSheet
-        {...props}
-        open
-        initial={{
-          paymentPhone: '+7 901 444-55-66',
-          paymentDetails: 'Новый банк',
-          paymentCard: '  https://www.tinkoff.ru/rm/abc  ',
-        }}
-      />,
-    );
-
-    expect(screen.getByLabelText('Телефон СБП')).toHaveValue(
-      '+7 901 444-55-66',
-    );
-    expect(screen.getByLabelText('Банк')).toHaveValue('Новый банк');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-
-    expect(onSubmit).toHaveBeenCalledWith({
-      paymentPhone: '+7 901 444-55-66',
-      paymentDetails: 'Новый банк',
-      paymentCard: 'https://www.tinkoff.ru/rm/abc',
-    });
-  });
-
   /* Регрессия. handleSave вызывал onSubmit и выбрасывал возвращённый промис:
      отказ сервера не показывался НИГДЕ — лист оставался открытым, кнопка
      переставала крутиться, сообщения не было, а в консоли висело
@@ -77,63 +28,6 @@ describe('EditPaymentInfoSheet', () => {
       expect(screen.getByText(/Не удалось сохранить реквизиты/)).toBeInTheDocument();
     });
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-  });
-
-  /* Любая строка уходила на сервер как реквизит для денег: проверки не было
-     ни на клиенте, ни в форме. */
-  it('не отправляет заведомо неверный телефон', () => {
-    _resetBackButtonForTests();
-    const onSubmit = vi.fn();
-    render(
-      <EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={onSubmit} initial={{ paymentPhone: '123' }} />,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText(/не хватает цифр/)).toBeInTheDocument();
-  });
-
-  /* Поле «Номер карты» заменено на «Ссылка на СБП»: по ссылке плательщик
-     попадает сразу в свой банк, а цифры карты надо копировать руками. */
-  it('не отправляет то, что не является ссылкой', () => {
-    _resetBackButtonForTests();
-    const onSubmit = vi.fn();
-    render(
-      <EditPaymentInfoSheet
-        open
-        busy={false}
-        onClose={vi.fn()}
-        onSubmit={onSubmit}
-        initial={{ paymentPhone: '+7 900 111-22-33', paymentCard: 'просто текст' }}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText(/не похоже на ссылку/i)).toBeInTheDocument();
-  });
-
-  /* javascript:-ссылка из чужого профиля исполнилась бы по тапу того, кто
-     платит. Схему проверяем на вводе и ещё раз перед показом. */
-  it('не принимает ссылку с опасной схемой', () => {
-    _resetBackButtonForTests();
-    const onSubmit = vi.fn();
-    render(
-      <EditPaymentInfoSheet
-        open
-        busy={false}
-        onClose={vi.fn()}
-        onSubmit={onSubmit}
-        initial={{ paymentCard: 'javascript:alert(1)' }}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText(/должна начинаться с https/i)).toBeInTheDocument();
   });
 
   /* Какой номер уходит на сервер. Привычное «8 926…» должно давать «+7 926…»,

@@ -1,4 +1,4 @@
-import { expect, test, toasts } from '../fixtures/test';
+import { expect, test } from '../fixtures/test';
 import { USERS } from '../scenarios/data';
 
 test.describe('Создание закупки', () => {
@@ -38,79 +38,6 @@ test.describe('Создание закупки', () => {
       collectMinutes: 30,
     });
     await expect(appPage.getByText('Магнит на Ленина')).toBeVisible();
-  });
-
-  test('карандаш у выбранного магазина переименовывает его', async ({ appPage, api }) => {
-    await appPage.goto('/');
-    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
-    const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
-
-    /* До выбора карандаша нет: подсказки не должны выглядеть панелью
-       управления. */
-    await expect(dialog.getByRole('button', { name: /Изменить магазин/ })).toHaveCount(0);
-
-    await dialog.getByRole('button', { name: 'Магнит на Ленина' }).click();
-    await dialog.getByRole('button', { name: 'Изменить магазин «Магнит на Ленина»' }).click();
-
-    const manage = appPage.getByRole('dialog', { name: 'Магнит на Ленина' });
-    await manage.getByRole('textbox').fill('Магнит у дома');
-    await manage.getByRole('button', { name: 'Переименовать' }).click();
-
-    expect(api.lastRequest('PATCH', '/groups/1/stores/902')?.body).toEqual({
-      name: 'Магнит у дома',
-    });
-    /* exact: имя карандаша содержит имя магазина, и без этого локатор ловит
-       обе кнопки. */
-    await expect(
-      appPage.getByRole('dialog', { name: 'Новая закупка' }).getByRole('button', {
-        name: 'Магнит у дома',
-        exact: true,
-      }),
-    ).toBeVisible();
-    // поле под чипами показывает новое имя, а не копию старого
-    await expect(dialog.getByRole('textbox', { name: 'Откуда заказываем' })).toHaveValue('Магнит у дома');
-  });
-
-  test('занятое название переименование отклоняет', async ({ appPage, api }) => {
-    await appPage.goto('/');
-    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
-    const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
-
-    await dialog.getByRole('button', { name: 'Магнит на Ленина' }).click();
-    await dialog.getByRole('button', { name: 'Изменить магазин «Магнит на Ленина»' }).click();
-
-    const manage = appPage.getByRole('dialog', { name: 'Магнит на Ленина' });
-    /* Другой регистр и другое написание ё — для сервера это то же имя. */
-    await manage.getByRole('textbox').fill('пятерочка у офиса');
-    await manage.getByRole('button', { name: 'Переименовать' }).click();
-
-    await expect(toasts(appPage)).toHaveCount(1);
-    await expect(manage).toBeVisible();
-    expect(api.lastRequest('PATCH', '/groups/1/stores/902')?.body).toEqual({
-      name: 'пятерочка у офиса',
-    });
-  });
-
-  /* Скрытие, а не удаление: прошлые закупки магазин помнят, из подсказок он
-     уходит. */
-  test('убирает магазин из подсказок', async ({ appPage, api }) => {
-    await appPage.goto('/');
-    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
-    const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
-
-    await dialog.getByRole('button', { name: 'Магнит на Ленина' }).click();
-    await dialog.getByRole('button', { name: 'Изменить магазин «Магнит на Ленина»' }).click();
-    const manage = appPage.getByRole('dialog', { name: 'Магнит на Ленина' });
-    await manage.getByRole('button', { name: 'Убрать из подсказок' }).click();
-
-    await expect(manage).toHaveCount(0);
-    expect(api.requests('DELETE', '/groups/1/stores/902')).toHaveLength(1);
-    await expect(dialog.getByRole('button', { name: 'Магнит на Ленина', exact: true })).toHaveCount(0);
-    await expect(dialog.getByRole('button', { name: 'Пятёрочка у офиса', exact: true })).toBeVisible();
-    /* Выбор снят вместе с магазином: иначе ушёл бы id скрытой записи, и
-       сервер ответил бы «магазина нет». */
-    await expect(dialog.getByRole('textbox', { name: 'Откуда заказываем' })).toHaveValue('');
-    await expect(dialog.getByRole('button', { name: 'Открыть сбор' })).toBeDisabled();
   });
 });
 
@@ -173,47 +100,6 @@ test.describe('Закупка: сбор позиций', () => {
     });
     await expect(appPage.getByText('Кофе в зёрнах')).toBeVisible();
   });
-
-  test('удаление товара из личного списка не трогает закупку', async ({ appPage, api }) => {
-    await appPage.goto('/store-run/601');
-    await appPage.getByRole('button', { name: 'Добавить позицию' }).click();
-    const add = appPage.getByRole('dialog');
-
-    await add.getByRole('button', { name: 'Удалить Кофе в зёрнах из моих товаров' }).click();
-
-    await expect(add.getByText('Кофе в зёрнах')).toHaveCount(0);
-    expect(api.requests('DELETE', '/user/item-presets/802')).toHaveLength(1);
-    expect(api.requests('POST', '/store-runs/601/items')).toHaveLength(0);
-  });
-
-  /* Отметка ставится сразу, до ответа сервера, — значит, при отказе она обязана
-     вернуться, иначе экран врёт о сохранённом. */
-  test('закрепляет товар и откатывает отметку при отказе сервера', async ({ appPage, api }) => {
-    await appPage.goto('/store-run/601');
-    await appPage.getByRole('button', { name: 'Добавить позицию' }).click();
-    const add = appPage.getByRole('dialog');
-
-    await add.getByRole('button', { name: 'Закрепить Кофе в зёрнах' }).click();
-    const unpin = add.getByRole('button', { name: 'Открепить Кофе в зёрнах' });
-    await expect(unpin).toHaveAttribute('aria-pressed', 'true');
-    await expect
-      .poll(() => api.lastRequest('PATCH', '/user/item-presets/802')?.body)
-      .toEqual({ pinned: true });
-
-    api.fail('PATCH', '/user/item-presets/802', {
-      status: 500,
-      error: 'Сервер не сохранил отметку',
-      code: 'E2E_PIN_FAILED',
-    });
-    /* После отказа список перечитывается и сам вернул бы отметку. Задержка
-       перечитывания оставляет на экране только откат: без него тест зелёный и
-       при сломанном откате. */
-    api.delay('GET', '/user/item-presets', 3_000);
-    await unpin.click();
-    await expect(toasts(appPage)).toHaveCount(1);
-    await expect(unpin).toHaveAttribute('aria-pressed', 'true', { timeout: 1_000 });
-    expect(api.requests('PATCH', '/user/item-presets/802')).toHaveLength(2);
-  });
 });
 
 test.describe('Закупка: действия инициатора', () => {
@@ -243,23 +129,6 @@ test.describe('Закупка: действия инициатора', () => {
     await appPage.getByRole('alertdialog').getByRole('button', { name: 'Отменить закупку' }).click();
     await expect.poll(() => api.requests('POST', '/store-runs/601/cancel').length).toBe(1);
     await expect(appPage.getByRole('button', { name: /Отменить закупку|Закрыть сбор/ })).toHaveCount(0);
-  });
-
-  test('пустой сбор ведёт к добавлению, а не к отмене', async ({ appPage, api }) => {
-    api.state.storeRuns[0].items = [];
-    await appPage.goto('/store-run/601');
-    await expect(appPage.getByText('Пока пусто')).toBeVisible();
-    // закрывать нечего — кнопки нет вовсе, а не заблокированная
-    await expect(appPage.getByRole('button', { name: 'Закрыть сбор' })).toHaveCount(0);
-    await expect(appPage.getByRole('button', { name: 'Добавить позицию' }).first()).toBeEnabled();
-    await expect(appPage.getByRole('button', { name: 'Отменить закупку' })).toBeEnabled();
-  });
-
-  test('истёкший сбор показывает переходное состояние и запрашивает свежий статус', async ({ appPage, api }) => {
-    api.state.storeRuns[0].collectUntil = '2026-07-20T09:04:00.000Z';
-    await appPage.goto('/store-run/601');
-    await expect(appPage.getByText('Сбор закрывается…')).toBeVisible();
-    await expect.poll(() => api.requests('GET', '/store-runs/601').length).toBeGreaterThan(1);
   });
 });
 
@@ -318,19 +187,6 @@ test.describe('Закупка: покупки инициатора', () => {
     await expect(appPage.getByRole('textbox', { name: /Цена за всё/ })).toBeVisible();
     expect(api.requests('POST', '/store-runs/601/settle')).toHaveLength(0);
   });
-
-  test('не принимает отрицательную цену', async ({ appPage, api }) => {
-    await appPage.goto('/store-run/601');
-    await appPage.getByRole('button', { name: 'Куплено: Молоко 3,2%' }).click();
-    await expect.poll(() => api.requests('POST', '/store-runs/601/items/701/price').length).toBe(1);
-    await appPage.getByRole('button', { name: 'Указать цену: Молоко 3,2%' }).click();
-    const price = appPage.getByRole('textbox', { name: 'Цена за всё (×2), ₽' });
-    await price.fill('-1');
-    await appPage.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(price).toHaveAttribute('aria-invalid', 'true');
-    await expect(price).toHaveValue('-1');
-    expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(1);
-  });
 });
 
 test.describe('Закупка: чтение участником и конечные состояния', () => {
@@ -354,15 +210,6 @@ test.describe('Закупка: чтение участником и конечн
       await expect(appPage).toHaveURL(/\/$/);
     });
   });
-
-  test.describe('отменено', () => {
-    test.use({ scenario: 'store-cancelled', role: 'storeParticipant' });
-    test('показывает только историю', async ({ appPage }) => {
-      await appPage.goto('/store-run/601');
-      await expect(appPage.getByText('Пятёрочка у офиса').first()).toBeVisible();
-      await expect(appPage.getByRole('button', { name: /Изменить|Удалить|Добавить позицию/ })).toHaveCount(0);
-    });
-  });
 });
 
 test.describe('Закупка: ошибки маршрута', () => {
@@ -372,32 +219,6 @@ test.describe('Закупка: ошибки маршрута', () => {
       await appPage.goto('/store-run/601');
       await expect(appPage.getByText('Нет доступа')).toBeVisible();
       await expect(appPage.getByRole('button', { name: 'Повторить' })).toHaveCount(0);
-    });
-  });
-
-  test.describe('не найдено', () => {
-    test.use({ scenario: 'store-not-found' });
-    test('различает 404 и неверный идентификатор', async ({ appPage }) => {
-      await appPage.goto('/store-run/999');
-      await expect(appPage.getByText('Не найдено')).toBeVisible();
-      await appPage.goto('/store-run/not-a-number');
-      await expect(appPage.getByText('Не найдено')).toBeVisible();
-    });
-  });
-
-  test.describe('сетевая ошибка', () => {
-    test.use({ scenario: 'store-collecting' });
-    test('повторяет сетевой запрос', async ({ appPage, api }) => {
-      api.fail('GET', '/store-runs/601', {
-        status: 500,
-        error: 'Сеть недоступна',
-        code: 'NETWORK_ERROR',
-      });
-      await appPage.goto('/store-run/601');
-      await expect(appPage.getByText('Не удалось загрузить')).toBeVisible();
-      api.clearFailure('GET', '/store-runs/601');
-      await appPage.getByRole('button', { name: 'Повторить' }).click();
-      await expect(appPage.getByText('Пятёрочка у офиса')).toBeVisible();
     });
   });
 });

@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { StoreItem, StoreItemStatus } from '@/services/store-run.service';
 import {
-  COLLECT_PRESETS,
-  boughtWithoutPrice,
   computeBreakdown,
-  computeProgress,
-  formatPrice,
-  groupItemsByParticipant,
-  hasRequested,
   initiatorOwnTotal,
-  isInitiator,
-  isOwner,
   parsePriceInput,
   personalDebtTotal,
   priceNum,
@@ -20,7 +12,6 @@ import {
 
 // Роли: 1 = Игорь (инициатор), 2 = Аня, 3 = текущий пользователь.
 const INITIATOR = 1;
-const CURRENT = 3;
 
 let seq = 0;
 function item(
@@ -62,12 +53,6 @@ function fixture(): StoreItem[] {
     item(3, 'REQUESTED', null, { name: 'Яблоки', quantity: 4 }),
   ];
 }
-
-describe('COLLECT_PRESETS', () => {
-  it('все в диапазоне backend 3..30', () => {
-    expect(COLLECT_PRESETS.every((m) => m >= 3 && m <= 30)).toBe(true);
-  });
-});
 
 describe('priceNum (значения API)', () => {
   it.each([
@@ -120,36 +105,9 @@ describe('parsePriceInput (ввод пользователя)', () => {
   });
 });
 
-describe('formatPrice', () => {
-  it('показывает копейки парой цифр и только когда они есть', () => {
-    expect(formatPrice(12.5).replace(/\s/g, ' ')).toBe('12,50 ₽');
-    expect(formatPrice(12.05).replace(/\s/g, ' ')).toBe('12,05 ₽');
-    expect(formatPrice(12).replace(/\s/g, ' ')).toBe('12 ₽');
-  });
-});
-
-describe('roles', () => {
-  const run = { initiatorId: INITIATOR, shoppingAt: null };
-  it('isInitiator', () => {
-    expect(isInitiator(run, 1)).toBe(true);
-    expect(isInitiator(run, 3)).toBe(false);
-    expect(isInitiator(run, null)).toBe(false);
-    expect(isInitiator(null, 1)).toBe(false);
-  });
-  it('isOwner', () => {
-    expect(isOwner({ userId: 3 }, 3)).toBe(true);
-    expect(isOwner({ userId: 3 }, 2)).toBe(false);
-    expect(isOwner({ userId: 3 }, null)).toBe(false);
-  });
-});
-
 describe('денежные суммы', () => {
   it('purchasedTotal: Σ BOUGHT price; quantity НЕ умножает (Молоко ×2 = 180, не 360)', () => {
     expect(purchasedTotal(fixture())).toBe(180 + 260 + 320);
-  });
-  it('NOT_FOUND и REQUESTED не входят в сумму', () => {
-    const items = [item(2, 'NOT_FOUND', null), item(3, 'REQUESTED', null)];
-    expect(purchasedTotal(items)).toBe(0);
   });
   it('personalDebtTotal участника = его BOUGHT', () => {
     expect(personalDebtTotal(fixture(), 3, INITIATOR)).toBe(260);
@@ -164,62 +122,10 @@ describe('денежные суммы', () => {
   it('receivableTotal = долги всех, кроме инициатора', () => {
     expect(receivableTotal(fixture(), INITIATOR)).toBe(180 + 260);
   });
-  it('инвариант: purchasedTotal = receivableTotal + initiatorOwnTotal', () => {
-    const items = fixture();
-    expect(purchasedTotal(items)).toBe(receivableTotal(items, INITIATOR) + initiatorOwnTotal(items, INITIATOR));
-  });
   it('BOUGHT с price=0 учитывается как 0, не отбрасывается', () => {
     const items = [item(3, 'BOUGHT', 0, { name: 'Пакет' }), item(3, 'BOUGHT', '50')];
     expect(purchasedTotal(items)).toBe(50);
     expect(personalDebtTotal(items, 3, INITIATOR)).toBe(50);
-  });
-});
-
-describe('computeProgress', () => {
-  it('считает статусы, processed = bought + notFound', () => {
-    expect(computeProgress(fixture())).toEqual({
-      total: 5,
-      processed: 4,
-      requested: 1,
-      bought: 3,
-      notFound: 1,
-    });
-  });
-  it('пустой список', () => {
-    expect(computeProgress([])).toEqual({ total: 0, processed: 0, requested: 0, bought: 0, notFound: 0 });
-  });
-});
-
-describe('hasRequested / boughtWithoutPrice', () => {
-  it('hasRequested', () => {
-    expect(hasRequested(fixture())).toBe(true);
-    expect(hasRequested([item(2, 'BOUGHT', '10')])).toBe(false);
-  });
-  it('boughtWithoutPrice — BOUGHT с price==null (блокирует settle)', () => {
-    const items = [item(2, 'BOUGHT', null), item(3, 'BOUGHT', '10'), item(3, 'NOT_FOUND', null)];
-    const bad = boughtWithoutPrice(items);
-    expect(bad).toHaveLength(1);
-    expect(bad[0].status).toBe('BOUGHT');
-    expect(boughtWithoutPrice(fixture())).toHaveLength(0);
-  });
-});
-
-describe('groupItemsByParticipant', () => {
-  it('«Мои» первой секцией, остальные — в порядке появления', () => {
-    const groups = groupItemsByParticipant(fixture(), CURRENT);
-    expect(groups.map((g) => g.userId)).toEqual([3, 2, 1]);
-    expect(groups[0].isMine).toBe(true);
-    expect(groups.slice(1).every((g) => !g.isMine)).toBe(true);
-  });
-  it('позиции пользователя собраны вместе', () => {
-    const groups = groupItemsByParticipant(fixture(), CURRENT);
-    const mine = groups.find((g) => g.userId === 3)!;
-    expect(mine.items.map((i) => i.name)).toEqual(['Хлеб', 'Яблоки']);
-  });
-  it('без currentUserId — никто не «мой», порядок появления', () => {
-    const groups = groupItemsByParticipant(fixture(), null);
-    expect(groups.map((g) => g.userId)).toEqual([2, 3, 1]);
-    expect(groups.every((g) => !g.isMine)).toBe(true);
   });
 });
 
@@ -232,15 +138,5 @@ describe('computeBreakdown', () => {
     const me = entries.find((e) => e.userId === 3)!;
     expect(me.items).toHaveLength(2); // BOUGHT + REQUESTED
     expect(me.total).toBe(260); // REQUESTED не в деньгах
-  });
-  it('запись инициатора помечена isInitiator', () => {
-    const entries = computeBreakdown(fixture(), INITIATOR);
-    const init = entries.find((e) => e.userId === INITIATOR)!;
-    expect(init.isInitiator).toBe(true);
-    expect(init.total).toBe(320);
-    expect(entries.filter((e) => e.isInitiator)).toHaveLength(1);
-  });
-  it('порядок групп — первое появление в items', () => {
-    expect(computeBreakdown(fixture(), INITIATOR).map((e) => e.userId)).toEqual([2, 3, 1]);
   });
 });

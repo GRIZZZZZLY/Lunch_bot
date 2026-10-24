@@ -123,8 +123,7 @@ npm --prefix frontend-new test
 Сквозные сценарии:
 
 ```powershell
-npm --prefix frontend-new run test:e2e:smoke
-npm --prefix frontend-new run test:e2e:full
+npm --prefix frontend-new run test:e2e
 ```
 
 Интеграция с настоящим локальным сервером:

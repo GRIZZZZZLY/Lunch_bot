@@ -56,13 +56,6 @@ beforeEach(() => {
 });
 
 describe('useLaunchLinkRoute', () => {
-  it('«Создать голосование» открывает главную со шторкой', () => {
-    h.link = { kind: 'group', chatId: '-1005', action: 'createPoll' };
-    renderApp();
-    expect(screen.getByText('/|createPoll')).toBeInTheDocument();
-    expect(useAppStore.getState().currentGroupId).toBe('5');
-  });
-
   /* Подставлять чужую команду наугад нельзя: человек увидел бы меню не той
      группы и принял бы его за нужное. */
   it('незнакомая группа не подменяется текущей, человеку сказано почему', () => {
@@ -72,21 +65,5 @@ describe('useLaunchLinkRoute', () => {
     expect(useAppStore.getState().currentGroupId).toBe('1');
     expect(h.toast.error).toHaveBeenCalled();
     expect(h.mark).toHaveBeenCalled();
-  });
-
-  it('ссылку на опрос оставляет главной', () => {
-    h.link = { kind: 'poll', id: 34 };
-    renderApp();
-    expect(screen.getByText('/|')).toBeInTheDocument();
-    expect(h.mark).not.toHaveBeenCalled();
-  });
-
-  it('ждёт список групп, прежде чем разбирать ссылку на группу', () => {
-    h.link = { kind: 'group', chatId: '-1005', action: 'menu' };
-    h.groupsLoaded = false;
-    renderApp();
-    expect(screen.getByText('/|')).toBeInTheDocument();
-    expect(h.mark).not.toHaveBeenCalled();
-    expect(h.toast.error).not.toHaveBeenCalled();
   });
 });

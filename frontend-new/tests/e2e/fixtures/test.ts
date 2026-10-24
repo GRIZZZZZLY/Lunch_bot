@@ -23,8 +23,6 @@ export interface ApiController {
   lastRequest: (method: string, path: string) => RequestRecord | undefined;
   fail: (method: string, path: string, rule: FailureRule) => void;
   clearFailure: (method: string, path: string) => void;
-  delay: (method: string, path: string, milliseconds: number) => void;
-  clearDelay: (method: string, path: string) => void;
 }
 
 export interface TelegramController {
@@ -82,12 +80,6 @@ export const test = base.extend<TestFixtures>({
       },
       clearFailure: (method, path) => {
         delete state.failures[`${method} ${path}`];
-      },
-      delay: (method, path, milliseconds) => {
-        state.delays[`${method} ${path}`] = milliseconds;
-      },
-      clearDelay: (method, path) => {
-        delete state.delays[`${method} ${path}`];
       },
     };
     await use(controller);

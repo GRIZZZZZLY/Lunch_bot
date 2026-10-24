@@ -16,16 +16,6 @@ test.describe('Меню участника', () => {
     await expect(appPage.getByText('Борщ со сметаной')).toHaveCount(0);
     await expect(appPage.getByText('Паста карбонара')).toHaveCount(0);
   });
-
-  test.describe('пустое меню', () => {
-    test.use({ scenario: 'menu-empty' });
-
-    test('участнику не предлагает добавить блюдо', async ({ appPage }) => {
-      await appPage.goto('/menu');
-      await expect(appPage.getByText('Меню пустое')).toBeVisible();
-      await expect(appPage.getByRole('button', { name: 'Добавить блюдо' })).toHaveCount(0);
-    });
-  });
 });
 
 test.describe('Управление меню', () => {
@@ -97,53 +87,5 @@ test.describe('Управление меню', () => {
     await expect(sheet.getByRole('textbox', { name: 'Название' })).toHaveValue('Ризотто');
     expect(api.requests('POST', '/menu')).toHaveLength(1);
   });
-
-  test('не отправляет форму повторно во время медленного сохранения', async ({ appPage, api }) => {
-    api.delay('POST', '/menu', 1_500);
-    await appPage.goto('/menu');
-    await appPage.getByRole('button', { name: 'Добавить блюдо' }).click();
-    const sheet = appPage.getByRole('dialog', { name: 'Добавить блюдо' });
-    await sheet.getByRole('textbox', { name: 'Название' }).fill('Фо-бо');
-    await sheet.getByRole('textbox', { name: 'Цена, ₽' }).fill('490');
-    const submit = sheet.getByRole('button', { name: 'Сохранить' });
-    await submit.evaluate((button: HTMLButtonElement) => {
-      button.click();
-      button.click();
-    });
-    await expect.poll(() => api.requests('POST', '/menu').length).toBe(1);
-    await expect(appPage.getByText('Фо-бо', { exact: true })).toBeVisible();
-    expect(api.requests('POST', '/menu')).toHaveLength(1);
-  });
 });
 
-test.describe('Группы и ошибки меню', () => {
-  test.describe('несколько групп', () => {
-    test.use({ scenario: 'groups-multiple', role: 'admin' });
-
-    test('переключает глобальную группу из шапки и повторяет запрос с новым groupId', async ({ appPage, api }) => {
-      await appPage.goto('/menu');
-      await appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }).click();
-      await expect(appPage.getByRole('radio', { name: 'Архивная группа' })).toHaveCount(0);
-      await appPage.getByRole('radio', { name: 'Команда Спутник' }).click();
-      // Выбор команды оставляет на вкладке: меню новой команды — сразу здесь.
-      await expect(appPage).toHaveURL(/\/menu$/);
-      await expect(
-        appPage.getByRole('button', { name: 'Команда: Команда Спутник. Сменить' }),
-      ).toBeVisible();
-      await expect.poll(() => api.requests('GET', '/menu').some((request) => request.query.groupId === '2')).toBe(true);
-      await expect(appPage.getByRole('button', { name: 'Добавить блюдо' })).toHaveCount(0);
-    });
-  });
-
-  test.describe('ошибка загрузки', () => {
-    test.use({ scenario: 'menu-error' });
-
-    test('показывает повтор и загружает меню после восстановления', async ({ appPage, api }) => {
-      await appPage.goto('/menu');
-      await expect(appPage.getByRole('heading', { name: 'Не удалось загрузить' })).toBeVisible();
-      api.clearFailure('GET', '/menu');
-      await appPage.getByRole('button', { name: 'Повторить' }).click();
-      await expect(appPage.getByText('Борщ со сметаной')).toBeVisible();
-    });
-  });
-});

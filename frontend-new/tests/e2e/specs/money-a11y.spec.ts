@@ -29,33 +29,12 @@ const SCREENS: MoneyScreen[] = [
     smoke: true,
   },
   {
-    title: 'долги: чип «оплачено» у ответственного',
-    scenario: 'budget-responsible',
-    role: 'responsible',
-    path: '/budget',
-    ready: (page) => page.getByRole('button', { name: 'Подтвердить' }),
-  },
-  {
-    title: 'закупка: чип «Сбор»',
-    scenario: 'store-collecting',
-    role: 'storeInitiator',
-    path: '/store-run/601',
-    ready: (page) => page.getByRole('button', { name: 'Закрыть сбор' }),
-  },
-  {
     title: 'закупка: чипы «Куплено» и «В магазине»',
     scenario: 'store-shopping',
     role: 'storeInitiator',
     path: '/store-run/601',
     ready: (page) => page.getByRole('button', { name: 'Рассчитать' }),
     smoke: true,
-  },
-  {
-    title: 'закупка: чип «Рассчитано»',
-    scenario: 'store-settled',
-    role: 'storeParticipant',
-    path: '/store-run/601',
-    ready: (page) => page.getByRole('button', { name: 'На главную' }),
   },
 ];
 

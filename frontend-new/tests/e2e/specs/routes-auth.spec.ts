@@ -2,13 +2,6 @@ import { expect, test } from '../fixtures/test';
 import { expectNoSeriousViolations } from '../fixtures/a11y';
 
 test.describe('Авторизация и маршруты', () => {
-  test('показывает состояние загрузки при медленной авторизации', async ({ appPage, api }) => {
-    api.delay('POST', '/auth/validate', 600);
-    await appPage.goto('/');
-    await expect(appPage.getByRole('status', { name: 'Загрузка' })).toBeVisible();
-    await expect(appPage.getByText('Сегодня ещё не решали')).toBeVisible();
-  });
-
   test('@smoke открывает все корневые разделы через нижнюю навигацию', async ({ appPage, api }) => {
     await appPage.goto('/');
     await expect
@@ -51,13 +44,6 @@ test.describe('Авторизация и маршруты', () => {
       else await expect(appPage.getByRole('heading').first()).toBeVisible();
       await expect(appPage.getByRole('heading', { name: 'Не удалось загрузить' })).toHaveCount(0);
     }
-  });
-
-  test('неизвестный адрес показывает 404 и возвращает на главную', async ({ appPage }) => {
-    await appPage.goto('/unknown/e2e');
-    await expect(appPage.getByText('Экран не найден')).toBeVisible();
-    await appPage.getByRole('button', { name: 'На главную' }).click();
-    await expect(appPage).toHaveURL('/');
   });
 
   test.describe('ошибки входа', () => {

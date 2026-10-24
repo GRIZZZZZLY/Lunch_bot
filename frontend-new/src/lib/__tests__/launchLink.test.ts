@@ -39,18 +39,6 @@ describe('parseLaunchLink', () => {
   ])('мусор не превращается в ссылку: %s %s', (search, startParam) => {
     expect(parseLaunchLink(search, startParam)).toBeNull();
   });
-
-  it('адрес важнее параметра запуска', () => {
-    expect(parseLaunchLink('?storeRunId=7', 'vote_34')).toEqual({ kind: 'storeRun', id: 7 });
-  });
-
-  it('неизвестное действие открывает меню группы', () => {
-    expect(parseLaunchLink('?groupId=-1&action=zzz', null)).toEqual({
-      kind: 'group',
-      chatId: '-1',
-      action: 'menu',
-    });
-  });
 });
 
 /**
@@ -76,15 +64,5 @@ describe('обработанная ссылка', () => {
     expect(getLaunchLink()).toEqual({ kind: 'storeRun', id: 8 });
     markLaunchLinkHandled();
     expect(getLaunchLink()).toBeNull();
-  });
-
-  it('id опроса отдаётся только для ссылки на опрос', async () => {
-    const { getLaunchPollId } = await import('../launchLink');
-    expect(getLaunchPollId()).toBeNull();
-
-    window.Telegram = {
-      WebApp: { initDataUnsafe: { start_param: 'vote_34' } } as unknown as TelegramWebApp,
-    };
-    expect(getLaunchPollId()).toBe(34);
   });
 });

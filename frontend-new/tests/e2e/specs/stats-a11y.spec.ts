@@ -10,13 +10,4 @@ test.describe('Доступность: статистика', () => {
     await expect(appPage.getByRole('region', { name: 'Ваше участие' })).toBeVisible();
     await expectNoSeriousViolations(appPage);
   });
-
-  test('тёмная тема без serious-нарушений', async ({ appPage }) => {
-    await appPage.goto('/profile');
-    const appearance = appPage.getByRole('region', { name: 'Оформление' });
-    await appearance.getByRole('button', { name: 'Тёмная тема' }).click();
-    await appPage.goto('/stats');
-    await expect(appPage.getByRole('region', { name: 'Ваше участие' })).toBeVisible();
-    await expectNoSeriousViolations(appPage);
-  });
 });

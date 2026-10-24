@@ -8,16 +8,15 @@
  * читается из сохранённых токенов, состояния стора и запросов, ушедших в сеть,
  * а не из вызовов моков.
  *
- * Проверяется три свойства, каждое из которых ломается молча:
+ * Обычный вход и обновление по refresh-токену проверяют сквозные сценарии
+ * (`routes-auth.spec.ts`, `integration.spec.ts`). Здесь — то, до чего они не
+ * доходят:
  *
- * 1. **Форма ответа терпима к обеим схемам.** Сервер отдаёт полезную нагрузку
- *    то в `data`, то на верхнем уровне. Потеря одной ветки означает «вход есть,
- *    а токена нет».
- * 2. **Отказ не бросает, а возвращает `success: false`.** На этом построен
+ * 1. **Отказ не бросает, а возвращает `success: false`.** На этом построен
  *    вызывающий код: экран показывает сообщение, а не падает в границу ошибок.
- * 3. **Переавторизация: сначала refresh, потом initData.** initData — запасной
- *    путь и живёт недолго (TELEGRAM_INIT_DATA_MAX_AGE_SECONDS на сервере);
- *    если оба пути отказали, сессия снимается, а не повторяет 401 вечно.
+ * 2. **Запасной путь initData и снятие сессии.** Если refresh отказал, сессию
+ *    восстанавливает initData; если отказали оба, сессия снимается, а не
+ *    повторяет 401 вечно.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiService } from '../api.service';
@@ -89,49 +88,6 @@ afterEach(() => {
 });
 
 describe('validateInitData', () => {
-  it('достаёт пользователя и токен из data', async () => {
-    serve({ '/auth/validate': authOk('access-1') });
-
-    await expect(authService.validateInitData('init')).resolves.toEqual({
-      success: true,
-      user: USER,
-      token: 'access-1',
-    });
-    expect(sent()).toMatchObject([{ path: '/auth/validate', body: { initData: 'init' } }]);
-  });
-
-  /* Вторая схема ответа: полезная нагрузка на верхнем уровне, без `data`.
-     Обе ветки живые, и обе приходят с продакшена. */
-  it('достаёт пользователя и токен с верхнего уровня', async () => {
-    serve({ '/auth/validate': ok({ success: true, user: USER, accessToken: 'access-2' }) });
-
-    await expect(authService.validateInitData('init')).resolves.toMatchObject({
-      success: true,
-      token: 'access-2',
-    });
-  });
-
-  /* Отказ НЕ бросает: вызывающий читает `success` и показывает текст. */
-  it('ответ без токена превращается в отказ с текстом сервера', async () => {
-    serve({ '/auth/validate': ok({ success: false, error: 'Invalid initData format' }) });
-
-    await expect(authService.validateInitData('init')).resolves.toEqual({
-      success: false,
-      user: {},
-      token: '',
-      error: 'Invalid initData format',
-    });
-  });
-
-  it('успех без токена тоже отказ — половинчатый вход недопустим', async () => {
-    serve({ '/auth/validate': ok({ success: true, data: { user: USER } }) });
-
-    const result = await authService.validateInitData('init');
-
-    expect(result.success).toBe(false);
-    expect(result.token).toBe('');
-  });
-
   it.each([
     ['сетевой сбой', 'network' as const],
     ['отказ сервера без текста', { status: 500 }],
@@ -143,47 +99,6 @@ describe('validateInitData', () => {
     expect(result.success).toBe(false);
     expect(result.error).toEqual(expect.any(String));
     expect(result.error).not.toBe('');
-  });
-
-  it('сохраняет refresh-токен из ответа', async () => {
-    serve({ '/auth/validate': authOk('a', { refreshToken: 'r' }) });
-
-    await authService.validateInitData('init');
-
-    expect(apiService.getRefreshToken()).toBe('r');
-  });
-});
-
-describe('refreshAuth', () => {
-  /* Сервер принимает на /auth/refresh только токен type=refresh: access там
-     даёт 401 — так жил баг «сессия умирает через час». */
-  it('шлёт именно refresh-токен в Authorization и сохраняет новую пару', async () => {
-    apiService.setToken('access-1');
-    apiService.setRefreshToken('refresh-1');
-    serve({ '/auth/refresh': authOk('access-2', { refreshToken: 'refresh-2' }) });
-
-    await expect(authService.refreshAuth()).resolves.toMatchObject({
-      success: true,
-      token: 'access-2',
-      refreshToken: 'refresh-2',
-    });
-    expect(sent()).toMatchObject([{ path: '/auth/refresh', auth: 'Bearer refresh-1' }]);
-    expect(apiService.getRefreshToken()).toBe('refresh-2');
-  });
-
-  it('без сохранённого refresh-токена не ходит на сервер и возвращает отказ', async () => {
-    await expect(authService.refreshAuth()).resolves.toMatchObject({ success: false });
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('отказ обновления не бросает', async () => {
-    apiService.setRefreshToken('refresh-1');
-    serve({ '/auth/refresh': { status: 401, body: { error: 'Refresh token revoked' } } });
-
-    await expect(authService.refreshAuth()).resolves.toMatchObject({
-      success: false,
-      error: 'Refresh token revoked',
-    });
   });
 });
 
@@ -203,23 +118,6 @@ describe('переавторизация по 401', () => {
   function telegramInitData(initData: string): void {
     window.Telegram = { WebApp: { initData } } as unknown as typeof window.Telegram;
   }
-
-  /* Сначала refresh: он дешевле и не требует Telegram. initData при этом есть,
-     но повторная валидация подписи не нужна. */
-  it('успешный refresh восстанавливает сессию без initData', async () => {
-    telegramInitData('init-data');
-    serve({
-      [POLLS]: [{ status: 401 }, ok({ success: true, data: [] })],
-      '/auth/refresh': authOk('fresh'),
-    });
-
-    await expect(apiService.get(POLLS)).resolves.toMatchObject({ success: true });
-
-    expect(sent().filter((r) => r.path.startsWith('/auth/'))).toMatchObject([{ path: '/auth/refresh' }]);
-    expect(lastSent()).toMatchObject({ path: POLLS, auth: 'Bearer fresh' });
-    expect(apiService.getToken()).toBe('fresh');
-    expect(useAppStore.getState().user).toEqual(USER);
-  });
 
   it('при отказе refresh сессию восстанавливает initData', async () => {
     telegramInitData('init-data');
@@ -255,18 +153,5 @@ describe('переавторизация по 401', () => {
     expect(apiService.getRefreshToken()).toBeNull();
     expect(useAppStore.getState().authStatus).toBe('error');
     expect(useAppStore.getState().user).toBeNull();
-  });
-
-  /* Вне Telegram подписи нет — запрос с пустой подписью не отправляется. */
-  it('без initData повторная валидация не отправляется', async () => {
-    telegramInitData('');
-    serve({
-      [POLLS]: { status: 401 },
-      '/auth/refresh': { status: 401, body: { error: 'expired' } },
-    });
-
-    await expect(apiService.get(POLLS)).rejects.toMatchObject({ status: 401 });
-
-    expect(sent().some((r) => r.path === '/auth/validate')).toBe(false);
   });
 });

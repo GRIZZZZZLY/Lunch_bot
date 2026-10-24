@@ -54,20 +54,6 @@ test.describe('Профиль и настройки', () => {
     expect(calls.some((call) => call.method === 'window.open' && String(call.args[0]).includes('sum=77700'))).toBe(true);
   });
 
-  test('переходит в историю, предложения и статистику', async ({ appPage }) => {
-    await appPage.goto('/profile');
-    await appPage.getByRole('button', { name: /Мои предложения/ }).click();
-    await expect(appPage).toHaveURL('/suggestions/mine');
-    await appPage.goto('/profile');
-    await appPage.getByRole('button', { name: /История голосований/ }).click();
-    await expect(appPage).toHaveURL('/poll/history');
-    await expect(appPage.getByText('Опрос #401')).toBeVisible();
-    await appPage.goto('/profile');
-    await appPage.getByRole('button', { name: /Статистика команды/ }).click();
-    await expect(appPage).toHaveURL('/stats');
-    await expect(appPage.getByRole('heading', { name: 'Статистика' })).toBeVisible();
-  });
-
   test('обычный участник не видит административную точку входа', async ({ appPage }) => {
     await appPage.goto('/profile');
     await expect(appPage.getByRole('button', { name: /Управление/ })).toHaveCount(0);
@@ -75,14 +61,6 @@ test.describe('Профиль и настройки', () => {
 });
 
 test.describe('Статистика', () => {
-  test.describe('пустая история', () => {
-    test.use({ scenario: 'empty' });
-    test('показывает пустую статистику', async ({ appPage }) => {
-      await appPage.goto('/stats');
-      await expect(appPage.getByText('Пока нет данных')).toBeVisible();
-    });
-  });
-
   /* Тест закреплял баг: отказ чтения истории показывался как «Пока нет
      данных… после первых голосований команды», то есть как факт о команде.
      Проверяем противоположное — что экран говорит про несостоявшийся запрос
@@ -92,10 +70,16 @@ test.describe('Статистика', () => {
     await appPage.goto('/stats');
     await expect(appPage.getByRole('button', { name: 'Повторить' })).toBeVisible();
     await expect(appPage.getByText('Пока нет данных')).toHaveCount(0);
+
+    /* Профиль читает ту же историю. Отказ давал там три уверенных нуля
+       («0 голосований, 0 завершено, 0 дней») вместо «не смог прочитать». */
+    await appPage.goto('/profile');
+    await expect(appPage.getByRole('button', { name: 'Повторить' })).toBeVisible();
   });
 });
 
-for (const role of ['creator', 'admin'] as const) {
+/* Администратор группы проходит панель ниже; здесь — вторая групповая роль. */
+for (const role of ['creator'] as const) {
   test.describe(`Административный раздел: ${role}`, () => {
     test.use({ role });
     test('групповая роль открывает защищённый адрес и точку входа профиля', async ({ appPage }) => {

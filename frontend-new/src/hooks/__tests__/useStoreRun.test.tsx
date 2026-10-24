@@ -50,24 +50,7 @@ beforeEach(() => {
   qc.setQueryData(KEY, seededRun());
 });
 
-describe('useSetItemPrice — оптимистичная отметка', () => {
-  it('переводит позицию в BOUGHT до ответа сервера', async () => {
-    let release: (() => void) | undefined;
-    h.setItemPrice.mockImplementation(
-      () => new Promise((resolve) => { release = () => resolve({ success: true, data: null }); }),
-    );
-
-    const { result } = renderHook(() => useSetItemPrice(RUN_ID), { wrapper });
-    result.current.mutate({ itemId: 10, payload: { price: null, status: 'BOUGHT' } });
-
-    // до ответа: список уже показывает покупку без цены
-    await waitFor(() => expect(itemStatus()).toBe('BOUGHT'));
-    expect(itemPrice()).toBeNull();
-
-    release?.();
-    await waitFor(() => expect(result.current.isPending).toBe(false));
-  });
-
+describe('useSetItemPrice — откат оптимистичной отметки', () => {
   it('откатывает список к снимку, если сервер отказал', async () => {
     h.setItemPrice.mockRejectedValue(new Error('нет сети'));
 

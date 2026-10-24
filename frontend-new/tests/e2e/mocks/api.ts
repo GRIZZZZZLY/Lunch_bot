@@ -108,9 +108,6 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     const body = await bodyOf(route);
     state.requests.push({ method, path, query: queryRecord(url), body });
 
-    const delay = state.delays[pathKey(method, path)];
-    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-
     /* Персональный поток денег ведёт себя как поток опроса: отдаём кадр
        `connected` и закрываем — клиент переподключится с backoff, а опрос
        останется страховкой. Проверка Bearer здесь содержательная: токен для

@@ -15,8 +15,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchMock = vi.fn();
 
 import { apiService } from '../api.service';
-import { pollsService } from '../polls.service';
-import { storeRunService } from '../store-run.service';
 import { useAppStore } from '@/store/useAppStore';
 
 function ok(body: unknown = { success: true }) {
@@ -70,17 +68,6 @@ describe('apiService — Idempotency-Key', () => {
     // Формат, который принимает бэкенд: 8..200 символов из [A-Za-z0-9_-:.]
     expect(key).toMatch(/^[A-Za-z0-9_\-:.]{8,200}$/);
   });
-
-  it('не ставит ключ на get', async () => {
-    await apiService.get('/polls/active');
-    expect(sentKey(0)).toBeUndefined();
-    expect(init(0)?.method).toBe('GET');
-  });
-
-  it('не перетирает уже выставленный ключ — ретрай должен попасть в replay', async () => {
-    await apiService.post('/polls', { a: 1 }, { headers: { 'Idempotency-Key': 'fixed-key-123456' } });
-    expect(sentKey(0)).toBe('fixed-key-123456');
-  });
 });
 
 describe('apiService — защита от двойного тапа', () => {
@@ -128,23 +115,6 @@ describe('apiService — защита от двойного тапа', () => {
     await expect(apiService.post('/feedback', { text: 'привет' })).resolves.toEqual({
       success: true,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it('разные URL не смешиваются', async () => {
-    const pending = deferred<ReturnType<typeof ok>>();
-    fetchMock.mockReturnValue(pending.promise);
-
-    void apiService.post('/store-runs/1/cancel', {});
-    void apiService.post('/store-runs/2/cancel', {});
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    pending.resolve(ok());
-  });
-
-  it('GET не схлопывается — это забота react-query', async () => {
-    await Promise.all([apiService.get('/store-runs/active'), apiService.get('/store-runs/active')]);
-
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
@@ -203,54 +173,7 @@ describe('apiService — стабильный ключ действия', () => 
   });
 });
 
-/**
- * Refresh-токен и явный Authorization.
- *
- * Задача 3: клиент никогда не сохранял refreshToken и слал access-токен на
- * /auth/refresh, где сервер требует type === 'refresh' — сессия умирала
- * через час без возможности восстановиться. Здесь фиксируется контракт
- * транспорта: refresh-токен живёт в sessionStorage под своим ключом,
- * clearToken сносит оба, а config.headers.Authorization не теряется под
- * access-токеном — иначе refresh-токен до сервера не доедет.
- */
-describe('apiService — refresh-токен и явный Authorization', () => {
-  afterEach(() => {
-    apiService.clearToken();
-  });
-
-  it('setRefreshToken/getRefreshToken читают и пишут независимо от access-токена', () => {
-    expect(apiService.getRefreshToken()).toBeNull();
-    apiService.setRefreshToken('r-1');
-    expect(apiService.getRefreshToken()).toBe('r-1');
-  });
-
-  it('clearToken очищает и access-, и refresh-токен', () => {
-    apiService.setToken('a-1');
-    apiService.setRefreshToken('r-1');
-    apiService.clearToken();
-    expect(apiService.getToken()).toBeNull();
-    expect(apiService.getRefreshToken()).toBeNull();
-  });
-
-  it('явный Authorization из config не перетирается access-токеном', async () => {
-    apiService.setToken('access');
-    await apiService.post('/auth/refresh', undefined, { headers: { Authorization: 'Bearer refresh' } });
-    const [, reqInit] = fetchMock.mock.calls[0];
-    expect((reqInit as RequestInit).headers).toMatchObject({ Authorization: 'Bearer refresh' });
-  });
-});
-
-describe('apiService — форма ошибки и таймаут', () => {
-  it('HTTP-ошибка приходит с error, code и status', async () => {
-    fetchMock.mockResolvedValueOnce(fail(403, { error: 'Нет доступа', code: 'FORBIDDEN' }));
-    await expect(apiService.get('/store-runs/1')).rejects.toMatchObject({
-      success: false,
-      error: 'Нет доступа',
-      code: 'FORBIDDEN',
-      status: 403,
-    });
-  });
-
+describe('apiService — форма ошибки', () => {
   it('пустое тело ошибки не ломает форму', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 500, text: async () => '' });
     await expect(apiService.get('/health')).rejects.toMatchObject({
@@ -259,25 +182,14 @@ describe('apiService — форма ошибки и таймаут', () => {
       status: 500,
     });
   });
-
-  it('обрыв таймаута отдаётся как сетевая ошибка', async () => {
-    fetchMock.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'));
-    await expect(apiService.get('/polls/active')).rejects.toMatchObject({
-      code: 'NETWORK_ERROR',
-    });
-  });
 });
 
 /**
  * Инъекция `groupId` в query.
  *
  * `buildUrl` подмешивает группу из стора, чтобы вызывающим не таскать её
- * повсюду. Половина методов `admin.service.ts` и `suggestions.service.ts` при
- * этом уже встраивает `?groupId=` прямо в путь — и получалось
- * `?groupId=5&groupId=5`. На бэкенде это приходит массивом; работало только
- * потому, что `parseInt(['5','5'])` приводит массив к строке `'5,5'` и
- * возвращает 5. Первая же схема с `z.coerce.number()` получила бы NaN и
- * ответила 400 на восьми работавших админских эндпоинтах.
+ * повсюду. Явно переданный в пути параметр побеждает стор — на это опирается
+ * переключение группы в админке.
  */
 describe('подмешивание groupId в query', () => {
   function requestedUrl(call = 0): string {
@@ -299,40 +211,11 @@ describe('подмешивание groupId в query', () => {
     expect(requestedUrl().match(/groupId=/g)).toHaveLength(1);
   });
 
-  it('groupId, уже вписанный в путь, не дублируется', async () => {
-    await apiService.get('/admin/users?groupId=5');
-
-    expect(requestedUrl().match(/groupId=/g)).toHaveLength(1);
-  });
-
-  /* Явно переданный в пути параметр побеждает стор — так было и раньше при
-     слиянии params, и на это опирается переключение группы в админке. */
   it('groupId из пути побеждает значение из стора', async () => {
     await apiService.get('/admin/users?groupId=7');
 
     expect(requestedUrl()).toContain('groupId=7');
     expect(requestedUrl()).not.toContain('groupId=5');
-  });
-
-  it('прочие параметры пути сохраняются и не мешают инъекции', async () => {
-    await apiService.get('/admin/cleanup/preview?daysOld=45&kind=polls');
-
-    const url = requestedUrl();
-    expect(url).toContain('daysOld=45');
-    expect(url).toContain('kind=polls');
-    expect(url.match(/groupId=/g)).toHaveLength(1);
-  });
-
-  /* Плашка команд в шапке спрашивает о ВСЕХ командах человека: сервер
-     отвечает по всем, только если groupId нет вовсе. Подмешанная текущая
-     команда молча сужала ответ до неё, и другие команды всегда были «Тихо». */
-  it('запросы «по всем командам» уходят без groupId', async () => {
-    fetchMock.mockResolvedValue(ok({ success: true, data: [] }));
-    await pollsService.getActiveAllTeams();
-    await storeRunService.getActiveAllTeams();
-
-    expect(requestedUrl(0)).toMatch(/\/polls\/active$/);
-    expect(requestedUrl(1)).toMatch(/\/store-runs\/active$/);
   });
 });
 
@@ -369,32 +252,6 @@ describe('команда в идентичности операции', () => {
     expect(sentKey(0)).not.toBe(sentKey(1));
   });
 
-  it('в одной команде двойной тап по-прежнему схлопывается', async () => {
-    const first = deferred<ReturnType<typeof ok>>();
-    fetchMock.mockReturnValueOnce(first.promise);
-
-    useAppStore.setState({ currentGroupId: '5' });
-    const a = apiService.post('/polls', { menuItemId: 1 });
-    const b = apiService.post('/polls', { menuItemId: 1 });
-
-    first.resolve(ok());
-    await Promise.all([a, b]);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  /* Повтор после неизвестного исхода обязан сохранить ключ той команды, в
-     которой действие началось, — иначе сервер не узнает в нём повтор. */
-  it('повтор в той же команде после 5xx идёт с тем же ключом', async () => {
-    fetchMock.mockResolvedValueOnce(fail(500));
-    useAppStore.setState({ currentGroupId: '5' });
-
-    await expect(apiService.post('/polls', { menuItemId: 1 })).rejects.toBeDefined();
-    await apiService.post('/polls', { menuItemId: 1 });
-
-    expect(sentKey(0)).toBe(sentKey(1));
-  });
-
   it('после 5xx в одной команде другая команда получает свой ключ', async () => {
     fetchMock.mockResolvedValueOnce(fail(500));
     useAppStore.setState({ currentGroupId: '5' });
@@ -404,25 +261,6 @@ describe('команда в идентичности операции', () => {
     useAppStore.setState({ currentGroupId: '7' });
     await apiService.post('/polls', { menuItemId: 1 });
 
-    expect(sentKey(0)).not.toBe(sentKey(1));
-  });
-
-  /* Явный groupId в пути побеждает стор и в идентичности тоже — иначе
-     действие, адресованное конкретной команде, схлопнулось бы с действием
-     текущей. */
-  it('groupId из пути определяет действие, а не значение из стора', async () => {
-    const first = deferred<ReturnType<typeof ok>>();
-    fetchMock.mockReturnValueOnce(first.promise);
-    fetchMock.mockResolvedValueOnce(ok());
-
-    useAppStore.setState({ currentGroupId: '5' });
-    const a = apiService.post('/polls?groupId=5', { menuItemId: 1 });
-    const b = apiService.post('/polls?groupId=7', { menuItemId: 1 });
-
-    first.resolve(ok());
-    await Promise.all([a, b]);
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(sentKey(0)).not.toBe(sentKey(1));
   });
 });

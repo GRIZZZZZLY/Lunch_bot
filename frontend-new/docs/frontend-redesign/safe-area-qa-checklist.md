@@ -1,7 +1,8 @@
 # Manual QA — Telegram safe area и viewport
 
-Автотесты (`src/lib/__tests__/viewport.test.ts`, layouts) проверяют логику,
-но НЕ заменяют проверку на реальном клиенте Telegram. Прогонять этот чеклист
+Автотест (`tests/e2e/specs/routes-auth.spec.ts`, «синхронизирует тему и Telegram
+BackButton») проверяет перенос safe-area в CSS-переменные, но НЕ заменяет
+проверку на реальном клиенте Telegram. Прогонять этот чеклист
 перед каждым деплоем, затрагивающим shell, BottomSheet или навигацию.
 
 Механизм: `src/lib/viewport.ts` переопределяет `--safe-area-*` и

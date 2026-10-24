@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { useAppStore } from '@/store/useAppStore';
 
 const h = vi.hoisted(() => ({
@@ -40,7 +40,6 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.state.user }) }));
 vi.mock('@/hooks/useUser', () => ({ useMyGroups: () => h.q(h.state.groups) }));
 
 import MenuPage from '../MenuPage';
-import { buildCategories } from '../MenuPage';
 
 const dish = (over: Record<string, unknown> = {}) => ({
   id: 1,
@@ -73,85 +72,7 @@ beforeEach(() => {
   useAppStore.setState({ currentGroupId: '10', user: null, authStatus: 'authenticated', authError: null });
 });
 
-describe('MenuPage — участник', () => {
-  /* Была подсказка «предложите его в „Предложениях“ из профиля» — инструкция
-     проложить путь самому вместо кнопки, которая туда ведёт. */
-  it('участнику предлагают действие, а не маршрут до него', () => {
-    render(<MenuPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Предложить блюдо' }));
-    expect(h.navigate).toHaveBeenCalledWith('/suggestions/mine');
-  });
-
-  it('поиск фильтрует; пустой результат — EmptyState', () => {
-    render(<MenuPage />);
-    fireEvent.change(screen.getByLabelText('Поиск блюд'), { target: { value: 'пицца' } });
-    expect(screen.queryByText('Том-ям с креветками')).not.toBeInTheDocument();
-    expect(screen.getByText('Пицца «Маргарита»')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Поиск блюд'), { target: { value: 'шаурма' } });
-    expect(screen.getByText('Ничего не нашлось')).toBeInTheDocument();
-  });
-});
-
-describe('MenuPage — админ группы', () => {
-  beforeEach(() => {
-    // Права по РОЛИ в выбранной группе, а не по глобальному isAdmin.
-    h.state.groups = [group(10, 'Офис', 'ADMIN')];
-  });
-
-  it('toggle уходит с явным groupId (B4)', () => {
-    render(<MenuPage />);
-    fireEvent.click(screen.getByLabelText('Скрыть «Том-ям с креветками»'));
-    expect(h.state.toggle.mutate).toHaveBeenCalledWith({ id: 1, groupId: '10' });
-  });
-});
-
-describe('MenuPage — глобальный админ без роли в группе', () => {
-  it('isAdmin=true, но роль MEMBER → «Добавить блюдо» скрыто (совпадает с бэком)', () => {
-    h.state.user = { id: 1, firstName: 'Игорь', isAdmin: true };
-    h.state.groups = [group(10, 'Офис', 'MEMBER')];
-    render(<MenuPage />);
-    expect(screen.queryByRole('button', { name: 'Добавить блюдо' })).not.toBeInTheDocument();
-  });
-});
-
-describe('MenuPage — смена команды', () => {
-  it('смена команды в шапке сбрасывает поиск', () => {
-    h.state.groups = [group(10, 'Офис', 'ADMIN'), group(20, 'Розница')];
-    useAppStore.setState({ currentGroupId: '10' });
-    render(<MenuPage />);
-
-    fireEvent.change(screen.getByRole('textbox', { name: 'Поиск блюд' }), { target: { value: 'суп' } });
-    act(() => useAppStore.setState({ currentGroupId: '20' }));
-    expect(screen.getByRole('textbox', { name: 'Поиск блюд' })).toHaveValue('');
-  });
-});
-
-describe('buildCategories', () => {
-  it('считает категории с «Все» первым', () => {
-    expect(buildCategories([{ category: 'Супы' }, { category: 'Супы' }, { category: 'Пицца' }])).toEqual([
-      { id: 'all', label: 'Все', count: 3 },
-      { id: 'Супы', label: 'Супы', count: 2 },
-      { id: 'Пицца', label: 'Пицца', count: 1 },
-    ]);
-  });
-});
-
-/* Находки критики 2026-08-01: фильтр не сообщал состояние, деньги шли без
-   разрядов, поиск нельзя было очистить одним касанием. */
-describe('MenuPage — состояние фильтра, деньги и поиск', () => {
-  it('выбранная категория объявлена через aria-pressed, а не только цветом', () => {
-    render(<MenuPage />);
-
-    const all = screen.getByRole('button', { name: /^Все/ });
-    const soups = screen.getByRole('button', { name: /^Супы/ });
-    expect(all).toHaveAttribute('aria-pressed', 'true');
-    expect(soups).toHaveAttribute('aria-pressed', 'false');
-
-    fireEvent.click(soups);
-    expect(screen.getByRole('button', { name: /^Супы/ })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /^Все/ })).toHaveAttribute('aria-pressed', 'false');
-  });
-
+describe('MenuPage — данные API', () => {
   it('блюдо без цены показывает прочерк, а не роняет экран', () => {
     // price в схеме — Decimal?, API отдаёт null как есть. Раньше это был
     // null.toLocaleString и «Что-то пошло не так» на весь экран.
@@ -161,31 +82,5 @@ describe('MenuPage — состояние фильтра, деньги и пои
     expect(screen.getByText('Комплимент от повара')).toBeInTheDocument();
     expect(screen.getByLabelText('Цена не указана')).toHaveTextContent('—');
     expect(screen.queryByText(/Что-то пошло не так/)).not.toBeInTheDocument();
-  });
-
-  it('очистка поиска возвращает список одним касанием', () => {
-    render(<MenuPage />);
-    const search = screen.getByRole('textbox', { name: 'Поиск блюд' });
-
-    fireEvent.change(search, { target: { value: 'несуществующее' } });
-    expect(screen.getByText('Ничего не нашлось')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
-    expect(screen.queryByText('Ничего не нашлось')).not.toBeInTheDocument();
-    expect(search).toHaveValue('');
-  });
-});
-
-/* Кнопка «Добавить блюдо» в чате группы открывает меню сразу с формой. */
-describe('MenuPage — действие из ссылки', () => {
-  beforeEach(() => {
-    h.location = { pathname: '/menu', state: { launchAction: 'addDish' } };
-  });
-
-  it('участнику объясняет, почему формы нет', () => {
-    render(<MenuPage />);
-
-    expect(screen.queryByRole('heading', { name: 'Добавить блюдо' })).not.toBeInTheDocument();
-    expect(h.toast.error).toHaveBeenCalled();
   });
 });

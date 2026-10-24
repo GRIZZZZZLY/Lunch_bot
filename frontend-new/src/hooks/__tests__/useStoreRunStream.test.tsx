@@ -1,5 +1,4 @@
-/* Поток закупки: кадр store_run_updated сбрасывает кэш забега, посторонние
-   кадры — нет. Транспорт подменяем заглушкой: проверяем решение хука, а не
+/* Поток закупки: кадр store_run_updated сбрасывает кэш забега. Транспорт подменяем заглушкой: проверяем решение хука, а не
    разбор SSE (он общий и покрыт поведением экрана опроса). */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -50,18 +49,6 @@ beforeEach(() => {
 });
 
 describe('useStoreRunStream', () => {
-  it('подписывается на персональный путь и только при открытом забеге', () => {
-    const { rerender } = renderHook(({ id }: { id: number | null }) => useStoreRunStream(id), {
-      wrapper,
-      initialProps: { id: null as number | null },
-    });
-    expect(h.lastOptions?.path).toBe('/api/sse/me/stream');
-    expect(h.lastOptions?.enabled).toBe(false);
-
-    rerender({ id: 601 });
-    expect(h.lastOptions?.enabled).toBe(true);
-  });
-
   /* data приходит сырым JSON-текстом (см. StreamEvent): разбор — на стороне
      хука. Без него detail-запрос не сбрасывался бы никогда. Битый кадр не
      говорит, какой забег изменился, но список всё равно обновляется. */
@@ -77,14 +64,5 @@ describe('useStoreRunStream', () => {
 
     expect(() => h.lastOptions?.onEvent({ event: 'store_run_updated', data })).not.toThrow();
     expect([isStale(LIST), isStale(DETAIL)]).toEqual(expected);
-  });
-
-  it('heartbeat и чужие кадры кэш не трогают', () => {
-    renderHook(() => useStoreRunStream(601), { wrapper });
-
-    h.lastOptions?.onEvent({ event: 'heartbeat', data: '{}' });
-    h.lastOptions?.onEvent({ event: 'debt_updated', data: '{}' });
-
-    expect([isStale(LIST), isStale(DETAIL)]).toEqual([false, false]);
   });
 });

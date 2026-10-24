@@ -1,5 +1,6 @@
-/* Оптимистичная смена статуса транзакции: применяется до ответа, откатывается
-   при отказе. Проверяется на настоящем QueryClient — именно кэш, а не рендер. */
+/* Смена статуса транзакции на настоящем QueryClient — проверяется кэш, а не
+   рендер. Оптимистичную отметку и её откат проверяет e2e
+   (budget-suggestions.spec.ts); здесь — то, чего он не видит. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
@@ -18,7 +19,7 @@ vi.mock('@/services/budget.service', () => ({
 
 vi.mock('../useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }));
 
-import { useConfirmPayment, useMarkAllPaid, useMarkPaid } from '../useBudget';
+import { useConfirmPayment, useMarkAllPaid } from '../useBudget';
 import { useToastStore } from '@/store/useToastStore';
 
 /* Команда фиксирована в ключе: хук берёт её из стора, тесты — из этой же
@@ -45,8 +46,6 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-const debtStatus = (id: number) =>
-  qc.getQueryData<Transaction[]>(DEBTS_KEY)?.find((t) => t.id === id)?.status;
 const creditStatus = (id: number) =>
   qc.getQueryData<Transaction[]>(CREDITS_KEY)?.find((t) => t.id === id)?.status;
 
@@ -60,35 +59,6 @@ beforeEach(() => {
   qc.setQueryData(CREDITS_KEY, [tx({ id: 9, status: 'PAID' })]);
 });
 
-describe('useMarkPaid — оптимистичная отметка', () => {
-  it('переводит долг в PAID до ответа сервера и не трогает соседний', async () => {
-    let release: (() => void) | undefined;
-    h.markPaid.mockImplementation(
-      () => new Promise((resolve) => { release = () => resolve({ success: true }); }),
-    );
-
-    const { result } = renderHook(() => useMarkPaid(), { wrapper });
-    result.current.mutate(5);
-
-    await waitFor(() => expect(debtStatus(5)).toBe('PAID'));
-    expect(debtStatus(6)).toBe('PENDING');
-
-    release?.();
-    await waitFor(() => expect(result.current.isPending).toBe(false));
-  });
-
-  it('откатывает список к снимку, если сервер отказал', async () => {
-    h.markPaid.mockRejectedValue(new Error('нет сети'));
-
-    const { result } = renderHook(() => useMarkPaid(), { wrapper });
-    result.current.mutate(5);
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    // отказ не оставляет долг помеченным: иначе он выглядел бы оплаченным
-    expect(debtStatus(5)).toBe('PENDING');
-  });
-});
-
 /* Подтверждение применяется после ответа сервера, а не до: «Закрыт» и «Все
    рассчитались» появлялись раньше, чем сервер соглашался, и при отказе
    откатывались — сборщик успевал сказать команде неправду. */
@@ -100,16 +70,6 @@ describe('useConfirmPayment — после ответа сервера', () => {
     result.current.mutate(9);
 
     await waitFor(() => expect(result.current.isPending).toBe(true));
-    expect(creditStatus(9)).toBe('PAID');
-  });
-
-  it('при отказе ничего не меняется', async () => {
-    h.confirmPayment.mockRejectedValue(new Error('нет сети'));
-
-    const { result } = renderHook(() => useConfirmPayment(), { wrapper });
-    result.current.mutate(9);
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
     expect(creditStatus(9)).toBe('PAID');
   });
 
@@ -143,16 +103,5 @@ describe('useMarkAllPaid — «Отметить все»', () => {
     expect(lastToast()?.type).toBe('error');
     expect(lastToast()?.message).toContain('Пятёрочка, 180 ₽');
     expect(lastToast()?.message).not.toContain('Паста, 420 ₽');
-  });
-
-  it('все прошли — успех', async () => {
-    h.markPaid.mockResolvedValue({});
-    const { result } = renderHook(() => useMarkAllPaid(), { wrapper });
-    result.current.mutate([
-      { id: 5, label: 'Паста, 420 ₽' },
-      { id: 6, label: 'Пятёрочка, 180 ₽' },
-    ]);
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(lastToast()?.type).toBe('success');
   });
 });

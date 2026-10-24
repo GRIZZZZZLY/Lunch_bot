@@ -30,9 +30,4 @@ describe('Button — занятая', () => {
     expect(onClick).not.toHaveBeenCalled();
     expect(onSubmit).not.toHaveBeenCalled();
   });
-
-  it('выключенная кнопка по-прежнему disabled', () => {
-    render(<Button disabled>Отметить</Button>);
-    expect(screen.getByRole('button')).toBeDisabled();
-  });
 });

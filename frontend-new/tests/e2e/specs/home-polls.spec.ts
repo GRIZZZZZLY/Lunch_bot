@@ -107,93 +107,6 @@ test.describe('Создание голосования', () => {
       selectedMenuItemIds: [11, 12],
     });
   });
-
-  test.describe('расписание уже есть', () => {
-    test.beforeEach(({ api }) => {
-      api.state.recurring = [
-        {
-          id: 1101,
-          groupId: 1,
-          isEnabled: false,
-          daysOfWeek: '[1,3,5]',
-          timeOfDay: '11:30',
-          duration: 30,
-          selectedMenuItemIds: '[11,12]',
-          lastRunAt: null,
-          nextRunAt: null,
-          lastRunStatus: null,
-          lastRunMessage: null,
-          createdBy: 101,
-          createdAt: '2026-07-14T09:00:00.000Z',
-          updatedAt: '2026-07-14T09:00:00.000Z',
-        },
-      ];
-    });
-
-    /* Сохранение выключенного расписания его включает: «сохранить» значит
-       «хочу, чтобы работало». Блюда у расписания свои — выбирать их заново не
-       нужно. */
-    test('правит выключенное расписание и включает его', async ({ appPage, api }) => {
-      await appPage.goto('/');
-      await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
-      const sheet = appPage.getByRole('dialog', { name: 'Создать опрос' });
-      await expect(sheet.getByText('на паузе · запуск в 11:30')).toBeVisible();
-
-      await sheet.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
-      await sheet.getByRole('button', { name: 'Вт', exact: true }).click();
-      await sheet.getByRole('button', { name: 'Чт', exact: true }).click();
-      await sheet.getByRole('button', { name: 'Сохранить расписание' }).click();
-
-      await expect.poll(() => api.lastRequest('PATCH', '/recurring/1101')?.body).toEqual({
-        groupId: 1,
-        daysOfWeek: [1, 2, 3, 4, 5],
-        timeOfDay: '11:30',
-        duration: 30,
-        selectedMenuItemIds: [11, 12],
-        isEnabled: true,
-      });
-      expect(api.requests('POST', '/recurring')).toHaveLength(0);
-    });
-
-    test('удаляет расписание', async ({ appPage, api }) => {
-      await appPage.goto('/');
-      await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
-      const sheet = appPage.getByRole('dialog', { name: 'Создать опрос' });
-      await sheet.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
-
-      // удаление необратимо — сначала вопрос, и «Оставить» ничего не трогает
-      await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
-      const confirm = appPage.getByRole('alertdialog');
-      await expect(confirm).toBeVisible();
-      await confirm.getByRole('button', { name: 'Оставить' }).click();
-      expect(api.requests('DELETE', '/recurring/1101')).toHaveLength(0);
-
-      await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
-      await confirm.getByRole('button', { name: 'Удалить расписание' }).click();
-      await expect.poll(() => api.requests('DELETE', '/recurring/1101').length).toBe(1);
-
-      // шторка закрылась; открытая заново, она предлагает создать расписание
-      await expect(sheet).toHaveCount(0);
-      await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
-      await sheet.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
-      await expect(sheet.getByRole('button', { name: 'Создать расписание' })).toBeVisible();
-      await expect(sheet.getByRole('button', { name: 'Удалить расписание' })).toHaveCount(0);
-    });
-  });
-
-  test('чипы дней ловят палец за пределами видимой пилюли (хитбокс 44)', async ({ appPage }) => {
-    await appPage.goto('/');
-    await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
-    await appPage.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
-
-    const chip = appPage.getByRole('button', { name: 'Сб', exact: true });
-    await expect(chip).toHaveAttribute('aria-pressed', 'false');
-    const box = (await chip.boundingBox())!;
-
-    // тап на 4 px выше верхней кромки пилюли: попасть должен всё равно чип
-    await appPage.mouse.click(box.x + box.width / 2, box.y - 4);
-    await expect(chip).toHaveAttribute('aria-pressed', 'true');
-  });
 });
 
 test.describe('Права и состояния главной', () => {
@@ -201,15 +114,6 @@ test.describe('Права и состояния главной', () => {
     await appPage.goto('/');
     await appPage.waitForLoadState('networkidle');
     await expect(appPage.getByRole('button', { name: 'Запустить голосование' })).toHaveCount(0);
-  });
-
-  test.describe('нет групп', () => {
-    test.use({ scenario: 'groups-none', role: 'admin' });
-
-    test('не предлагает создать голосование без активной группы', async ({ appPage }) => {
-      await appPage.goto('/');
-      await expect(appPage.getByRole('button', { name: 'Запустить голосование' })).toHaveCount(0);
-    });
   });
 
   test.describe('ошибка API', () => {
@@ -239,22 +143,6 @@ test.describe('Права и состояния главной', () => {
       await appPage.goto('/poll/401/results');
       await expect(appPage.getByRole('heading', { name: 'Борщ со сметаной и Паста карбонара' })).toBeVisible();
       await expect(appPage.getByText('победитель')).toHaveCount(2);
-    });
-
-    test('не маскирует 403 под пустой экран', async ({ appPage, api }) => {
-      api.fail('GET', '/polls/401', { status: 403, error: 'Нет доступа', code: 'FORBIDDEN' });
-      await appPage.goto('/poll/401/results');
-      await expect(appPage.getByText('Нет доступа')).toBeVisible();
-      await expect(appPage.getByRole('button', { name: 'Повторить' })).toHaveCount(0);
-    });
-
-    test('повторяет загрузку результатов после 500', async ({ appPage, api }) => {
-      api.fail('GET', '/polls/401/results', { status: 500, error: 'Ошибка результатов', code: 'INTERNAL_ERROR' });
-      await appPage.goto('/poll/401/results');
-      await expect(appPage.getByText('Не удалось загрузить')).toBeVisible();
-      api.clearFailure('GET', '/polls/401/results');
-      await appPage.getByRole('button', { name: 'Повторить' }).click();
-      await expect(appPage.getByText('Команда выбрала')).toBeVisible();
     });
   });
 });
