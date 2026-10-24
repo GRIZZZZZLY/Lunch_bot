@@ -386,15 +386,15 @@ describe('личный список товаров', () => {
     });
   });
 
-  // BUG: переименование в имя другого своего пресета падает на уникальном индексе (userId, normalizedName) и отвечает 500 вместо отказа 4xx.
-  it.failing('переименование в имя другого своего пресета — отказ клиенту, а не 500', async () => {
+  // Регрессия: имя другого своего пресета падало на уникальном индексе и отвечало 500.
+  it('переименование в имя другого своего пресета — отказ клиенту, а не 500', async () => {
     await preset('maria', 'Кофе');
     const tea = await preset('maria', 'Чай');
 
     const response = await call('patch', `/api/user/item-presets/${tea.id}`, 'maria', { name: 'КОФЕ' });
 
-    expect(response.status).toBeGreaterThanOrEqual(400);
-    expect(response.status).toBeLessThan(500);
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('DUPLICATE_ENTRY');
     expect((await prisma.userItemPreset.findUniqueOrThrow({ where: { id: tea.id } })).name).toBe('Чай');
   });
 });

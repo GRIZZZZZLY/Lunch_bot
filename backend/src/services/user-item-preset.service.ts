@@ -1,4 +1,4 @@
-import { UserItemPreset } from '@prisma/client';
+import { Prisma, UserItemPreset } from '@prisma/client';
 
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
@@ -34,7 +34,7 @@ export interface UpdatePresetInput {
 
 export class UserItemPresetError extends Error {
   constructor(
-    public code: 'NOT_FOUND' | 'INVALID_INPUT',
+    public code: 'NOT_FOUND' | 'INVALID_INPUT' | 'DUPLICATE_ENTRY',
     message: string,
   ) {
     super(message);
@@ -210,7 +210,18 @@ export class UserItemPresetService {
       data.pinned = patch.pinned;
     }
 
-    return prisma.userItemPreset.update({ where: { id: presetId }, data });
+    try {
+      return await prisma.userItemPreset.update({ where: { id: presetId }, data });
+    } catch (error) {
+      /* Новое имя совпало с другим своим пресетом — уникальный индекс
+         (userId, normalizedName). Это отказ клиенту, а не сбой, как и
+         переименование магазина в занятое имя. Ловим отказ индекса, а не
+         проверяем заранее: проверка и запись разошлись бы при гонке. */
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new UserItemPresetError('DUPLICATE_ENTRY', 'Товар с таким названием уже есть в списке');
+      }
+      throw error;
+    }
   }
 
   /** Удалить свой пресет. Жёстко: это личные данные, прятать их не от кого. */

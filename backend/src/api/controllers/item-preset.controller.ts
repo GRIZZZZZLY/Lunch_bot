@@ -17,9 +17,9 @@ function sendPresetError(req: Request, res: Response, err: unknown): void {
   if (respondIfInvalidInput(req, res, err)) return;
 
   if (err instanceof UserItemPresetError) {
-    res
-      .status(err.code === 'NOT_FOUND' ? 404 : 400)
-      .json({ error: err.message, code: err.code });
+    const status =
+      err.code === 'NOT_FOUND' ? 404 : err.code === 'DUPLICATE_ENTRY' ? 409 : 400;
+    res.status(status).json({ error: err.message, code: err.code });
     return;
   }
   logger.error('[ItemPresetController] Unexpected error:', err);
