@@ -1,6 +1,18 @@
 import { Season } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
+import { BaseError } from '../utils/error';
+
+/**
+ * Ротация раньше конца сезона — отказ по состоянию, а не сбой: 400. Раньше
+ * это был простой `Error`, общий `catch` ротации заворачивал его в «Failed to
+ * rotate season», и ветка 400 в контроллере была недостижима.
+ */
+export class SeasonNotEndedError extends BaseError {
+  constructor() {
+    super('Season has not ended yet', 400, 'SEASON_NOT_ENDED');
+  }
+}
 
 /**
  * SeasonService - Управление сезонной системой геймификации
@@ -180,7 +192,7 @@ export class SeasonService {
       const now = new Date();
       if (currentSeason.endDate > now) {
         logger.warn(`Season ${currentSeason.number} has not ended yet`);
-        throw new Error('Season has not ended yet');
+        throw new SeasonNotEndedError();
       }
 
       // Деактивируем текущий сезон
@@ -197,6 +209,7 @@ export class SeasonService {
       // Создаем новый сезон
       return await this.createMonthlySeason();
     } catch (error) {
+      if (error instanceof BaseError) throw error;
       logger.error('Error rotating season:', error);
       throw new Error('Failed to rotate season');
     }

@@ -953,8 +953,8 @@ describe('POST /api/seasons/rotate и /create — смена сезона', () =
     ]);
   });
 
-  // BUG: rotateSeason заворачивает «Season has not ended yet» в общую ошибку, и контроллер отвечает 500 вместо 400.
-  it.failing('rotate незакончившегося сезона — 400', async () => {
+  // Регрессия: «Season has not ended yet» заворачивалось в общую ошибку, и ответ был 500.
+  it('rotate незакончившегося сезона — 400', async () => {
     await seasonWithXp(1, []);
 
     const response = await ops('ops', '/api/seasons/rotate');

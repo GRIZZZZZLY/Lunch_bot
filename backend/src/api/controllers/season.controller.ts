@@ -11,6 +11,7 @@ import {
   seasonUserStatsParams,
 } from '../schemas/season';
 import { requireAuthUser } from '../middleware/require-auth-user';
+import { BaseError } from '../../utils/error';
 
 /**
  * Season Controller - API endpoints для сезонной системы
@@ -215,15 +216,10 @@ export class SeasonController {
       });
     } catch (error) {
       if (respondIfInvalidInput(req, res, error)) return;
+      /* Доменный отказ (`SeasonNotEndedError`) несёт статус и код сам —
+         их отдаёт error-handler. */
+      if (error instanceof BaseError) throw error;
       logger.error('Error rotating season:', error);
-      
-      if (error instanceof Error && error.message === 'Season has not ended yet') {
-        res.status(400).json({
-          success: false,
-          error: 'Current season has not ended yet',
-        });
-        return;
-      }
 
       res.status(500).json({
         success: false,

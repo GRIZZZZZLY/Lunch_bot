@@ -65,6 +65,7 @@ const BY_CODE: Record<string, string> = {
   CALCULATION_NOT_READY:
     'Расчёт закрыть нельзя: не у всех участников заполнены позиции.',
   DUPLICATE_ENTRY: 'Такая запись уже есть.',
+  SEASON_NOT_ENDED: 'Текущий сезон ещё не закончился.',
 
   // Долги
   UNDO_WINDOW_EXPIRED: 'Отменить подтверждение можно только в течение суток.',
