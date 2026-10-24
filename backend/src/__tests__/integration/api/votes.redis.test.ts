@@ -324,8 +324,8 @@ describe('XP за голос', () => {
     expect(await votedXp(poll.id, w.ids.ann)).toEqual(sorted(w.d1, w.d2));
   });
 
-  it.failing('голос через POST /vote — тот, что шлёт Mini App, — тоже даёт XP', async () => {
-    // BUG: upsertVote не начисляет XP вовсе, а XP за голос дают только vote-multiple и /api/votes/multiple, которые фронт не вызывает.
+  it('голос через POST /vote — тот, что шлёт Mini App, — тоже даёт XP', async () => {
+    // Регрессия: upsertVote не начислял XP, его давали только vote-multiple и /api/votes/multiple.
     const poll = await pollInA();
 
     await as.ann.post(`/api/polls/${poll.id}/vote`, { menuItemId: w.d1 }).expect(200);

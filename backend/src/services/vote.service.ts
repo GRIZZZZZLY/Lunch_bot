@@ -534,6 +534,11 @@ export class VoteService {
         });
       });
 
+      /* Как в vote-multiple: XP вне транзакции, а ключ голосование/человек/блюдо
+         не даёт начислить дважды за то же блюдо. Раньше этот путь — тот, что
+         зовёт Mini App, — опыта не давал вовсе. */
+      await VoteXpService.awardVoteXp(data.userId, data.pollId, data.menuItemId);
+
       logger.info(
         `Vote upserted: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`
       );

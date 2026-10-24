@@ -493,8 +493,8 @@ describe('голос через API → геймификация', () => {
     await expectVoteXpEarned();
   });
 
-  // BUG: VoteService.upsertVote (маршрут /vote, который зовёт Mini App) не вызывает VoteXpService — за такой голос опыт не начисляется.
-  it.failing('голос через /vote тоже начисляет опыт', async () => {
+  // Регрессия: upsertVote (маршрут /vote, который зовёт Mini App) не начислял опыт.
+  it('голос через /vote тоже начисляет опыт', async () => {
     await voteAsAnna('vote');
 
     await expectVoteXpEarned();
