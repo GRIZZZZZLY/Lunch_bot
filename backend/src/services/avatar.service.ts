@@ -48,7 +48,11 @@ export class AvatarService {
   }
 
   /**
-   * Загрузка аватарки из Telegram API
+   * Загрузка аватарки из Telegram API.
+   *
+   * `null` — ответ Telegram «фото нет», его можно кэшировать. Сбой (бота нет,
+   * сеть, неизвестная ошибка API) бросается: иначе он лёг бы в кэш как «фото
+   * нет» на весь срок кэша.
    */
   private static async fetchAvatarFromTelegram(
     telegramId: bigint
@@ -57,7 +61,7 @@ export class AvatarService {
       const bot = getBotInstance();
       if (!bot) {
         logger.error('[AvatarService] ❌ Bot instance not available for avatar fetch - bot may not be initialized yet');
-        return null;
+        throw new Error('Bot instance not available');
       }
 
       logger.debug('[AvatarService] Fetching avatar from Telegram');
@@ -112,7 +116,7 @@ export class AvatarService {
       logger.error('[AvatarService] Telegram avatar request failed', {
         errorCode: error.error_code,
       });
-      return null;
+      throw error;
     }
   }
 
@@ -163,8 +167,10 @@ export class AvatarService {
         return null;
       }
 
-      // 2. Проверяем валидность кэша
-      if (user.avatarUrl && this.isCacheValid(user.avatarUpdatedAt)) {
+      /* 2. Проверяем валидность кэша. Свежая запись без avatarUrl — тоже кэш:
+         «фото нет». Раньше её не считали кэшем, и каждый показ аватара
+         человека без фото шёл в Telegram. */
+      if (this.isCacheValid(user.avatarUpdatedAt)) {
         logger.debug('[AvatarService] Avatar cache hit');
         return presentAvatarUrl(user.avatarUrl);
       }
@@ -221,7 +227,8 @@ export class AvatarService {
       const needsUpdate: typeof users = [];
 
       for (const user of users) {
-        if (user.avatarUrl && this.isCacheValid(user.avatarUpdatedAt)) {
+        // Свежее «фото нет» (avatarUrl = null) — тоже кэш, см. getUserAvatar.
+        if (this.isCacheValid(user.avatarUpdatedAt)) {
           validCache.push(user);
         } else {
           needsUpdate.push(user);

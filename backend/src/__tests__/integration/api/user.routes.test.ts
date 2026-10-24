@@ -282,8 +282,8 @@ describe('аватарки: только людям с общей активно
     expect(telegram.photoRequests).toBe(1);
   });
 
-  // BUG: «нет фото» пишется в базу, но чтение его не считает кэшем, и каждый показ аватара без фото идёт в Telegram.
-  it.failing('отсутствие фото тоже кэшируется: второй запрос не идёт в Telegram', async () => {
+  // Регрессия: «нет фото» не считалось кэшем, и каждый показ аватара без фото шёл в Telegram.
+  it('отсутствие фото тоже кэшируется: второй запрос не идёт в Telegram', async () => {
     await prisma.user.update({ where: { id: w.user.vera }, data: { avatarUrl: null, avatarUpdatedAt: null } });
     const anna = await as('anna');
 
@@ -291,6 +291,25 @@ describe('аватарки: только людям с общей активно
     await anna.get(`/api/user/${w.user.vera}/avatar`).expect(200);
 
     expect(telegram.photoRequests).toBe(1);
+  });
+
+  // Сбой Telegram — не ответ «фото нет»: в кэш он не пишется, следующий показ спросит снова.
+  it('сбой Telegram не кэшируется как «нет фото»', async () => {
+    await prisma.user.update({ where: { id: w.user.vera }, data: { avatarUrl: null, avatarUpdatedAt: null } });
+    setBotInstance({
+      api: {
+        getUserProfilePhotos: async () => {
+          throw Object.assign(new Error('Too Many Requests'), { error_code: 429 });
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+
+    const res = await (await as('anna')).get(`/api/user/${w.user.vera}/avatar`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.avatarUrl).toBeNull();
+    const stored = await prisma.user.findUnique({ where: { id: w.user.vera } });
+    expect(stored?.avatarUpdatedAt).toBeNull();
   });
 
   it('пакет: в порядке запроса, чужие, вышедшие и мусор отброшены, без фото — null', async () => {
