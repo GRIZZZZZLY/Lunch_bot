@@ -216,11 +216,16 @@ export const isPollExpired = (endTime: Date): boolean => {
   return isBefore(endTime, now());
 };
 
-/** Поля голосования, задающие срок его жизни. */
+/**
+ * Поля голосования, задающие срок его жизни.
+ *
+ * Даты бывают строками: голосование, отданное из Redis, прошло через JSON, а
+ * типы Prisma об этом не знают.
+ */
 export interface PollTiming {
-  startedAt: Date;
+  startedAt: Date | string;
   duration: number;
-  endedAt?: Date | null;
+  endedAt?: Date | string | null;
 }
 
 /**
@@ -232,9 +237,14 @@ export interface PollTiming {
  * только про `startedAt + duration`. Расхождение стоило дорого: голосование,
  * закончившееся по одному правилу и живое по другому, пропадало с экрана и при
  * этом блокировало создание нового.
+ *
+ * Результат всегда настоящий `Date`: раньше из кэша возвращалась строка
+ * `endedAt`, и `toISOString`/`getTime` у вызывающих падали в 500.
  */
 export const pollEndsAt = (poll: PollTiming): Date =>
-  poll.endedAt ?? calculatePollEndTime(poll.startedAt, poll.duration);
+  poll.endedAt != null
+    ? new Date(poll.endedAt)
+    : calculatePollEndTime(new Date(poll.startedAt), poll.duration);
 
 /**
  * Голосование уже закончилось к моменту `at`.

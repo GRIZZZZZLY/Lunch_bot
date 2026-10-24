@@ -597,8 +597,8 @@ describe('GET /api/polls/active: проставленный endedAt', () => {
     expect(response.body.data[0].endTime).toBe(endedAt.toISOString());
   });
 
-  it.failing('повторный запрос, отданный из кэша, отвечает так же, как первый', async () => {
-    // BUG: из Redis даты приходят строками; pollEndsAt возвращает строку endedAt, withEndTime падает на toISOString → 500.
+  it('повторный запрос, отданный из кэша, отвечает так же, как первый', async () => {
+    // Регрессия: из Redis endedAt приходил строкой, и withEndTime падал на toISOString → 500.
     const endedAt = await activeWithEndedAt();
     await as.ann.get(`/api/polls/active?groupId=${w.groupA2}`).expect(200);
 
