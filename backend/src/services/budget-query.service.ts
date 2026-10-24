@@ -67,7 +67,7 @@ const debtsInclude = {
  * Возвращает `undefined` без `groupId`, чтобы вызывающий не добавлял в
  * запрос пустое условие.
  */
-function transactionGroupFilter(
+export function transactionGroupFilter(
   groupId?: number
 ): Prisma.TransactionWhereInput | undefined {
   if (groupId === undefined) return undefined;

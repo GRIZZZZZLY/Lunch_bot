@@ -7,6 +7,7 @@ import { withDistributedLock } from '../utils/distributed-lock';
 import { pluralForm } from '../utils/pluralize';
 import { escapeMarkdown } from '../utils/telegram-html';
 import { classifyTelegramError } from '../utils/telegram-errors';
+import { transactionGroupFilter } from '../services/budget-query.service';
 
 /**
  * Форматирование возраста долга.
@@ -107,9 +108,13 @@ async function getGroupDebtors(
   const lastReminderDate = new Date();
   lastReminderDate.setDate(lastReminderDate.getDate() - intervalDays);
 
-  // Получаем неоплаченные транзакции (долги) для пользователей группы
+  /* Неоплаченные долги ЭТОЙ группы её действующих участников. Одного членства
+     должника мало: человек из двух групп получал от группы с напоминаниями
+     письмо о долге из другой, где их выключили. Фильтр группы — через AND:
+     у него свой `OR` по двум связям долга, а ниже есть ещё один. */
   const transactions = await prisma.transaction.findMany({
     where: {
+      AND: transactionGroupFilter(groupId),
       status: 'PENDING',
       createdAt: {
         lte: minDebtDate,
