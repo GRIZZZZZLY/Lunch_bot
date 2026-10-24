@@ -132,8 +132,14 @@ export class PollFlowService {
 
       // Idempotency: if processResponsibleSelected is retried (network glitch,
       // worker re-run), don't double-insert. Skip insert if any tx already exists
-      // for this poll. Atomic check inside a Prisma transaction.
+      // for this poll.
       return await prisma.$transaction(async tx => {
+        /* Сама транзакция проверку не защищает: при READ COMMITTED два
+           одновременных вызова оба видят ноль и оба вставляют, а уникального
+           ключа у долгов голосования нет. Блокировка строки опроса ставит их
+           в очередь — второй считает уже после фиксации первого. Та же
+           блокировка, что `lockPollDebts` в budget.service. */
+        await tx.$queryRaw`SELECT id FROM polls WHERE id = ${pollId} FOR NO KEY UPDATE`;
         const existingCount = await tx.transaction.count({ where: { pollId } });
 
         if (existingCount === 0 && transactionsData.length > 0) {

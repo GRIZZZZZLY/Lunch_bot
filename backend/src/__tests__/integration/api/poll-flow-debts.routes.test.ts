@@ -175,8 +175,8 @@ describe('долги из голосования', () => {
   /* Защита от повтора — «посчитать, потом вставить» внутри транзакции
      READ COMMITTED, без уникального ограничения на долги голосования. Два
      одновременных вызова оба видят ноль и оба вставляют. */
-  // BUG: PollFlowService.createTransactionsFromPoll — проверка count() и вставка не атомарны, и у долгов голосования нет уникального ключа: параллельные вызовы создают второй комплект.
-  it.failing('одновременные вызовы не создают второй комплект', async () => {
+  // Регрессия: параллельные вызовы создавали второй комплект долгов.
+  it('одновременные вызовы не создают второй комплект', async () => {
     await Promise.all([
       PollFlowService.processResponsibleSelected(world.pollId, world.user.boris),
       PollFlowService.processResponsibleSelected(world.pollId, world.user.boris),
