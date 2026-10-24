@@ -323,10 +323,10 @@ export function requireCategoryOrderResponsible(
    */
   deniedMessage = 'Access denied'
 ) {
-  /* Имя функции сохранено намеренно: тест на проводку маршрутов
-     (`__tests__/unit/routes/category-order-authorization.test.ts`) читает
-     цепочку по именам обработчиков, и анонимная фабрика сделала бы её
-     непроверяемой. */
+  /* Имя функции читал модульный тест на проводку маршрутов, теперь удалённый.
+     Что guard стоит на маршрутах, проверяет
+     `integration/api/category-orders.redis.test.ts` (таблица «кто видит и
+     меняет категорию»). */
   return async function requireCategoryOrderResponsible(
     req: Request,
     res: Response,

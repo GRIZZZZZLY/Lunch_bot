@@ -29,8 +29,12 @@ npm run type-check:e2e
 npm run lint
 npm test
 npm run build
-npm run test:e2e:smoke
+npm run test:e2e              # мобильный Chromium на подставном API
 ```
+
+CI нет. Перед пушем в `main` из корня проекта запускается полный прогон
+`bash scripts/check-all.sh`: он добавляет серверные тесты и сквозные сценарии
+с настоящим сервером.
 
 ## Структура
 

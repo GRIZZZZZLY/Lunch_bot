@@ -32,9 +32,10 @@ import { serializeBigInt } from '../../utils/serialize';
  * маршруте перед ними стоит `requireCategoryOrderResponsible`, который делает
  * РОВНО ТОТ ЖЕ запрос и отвечает тем же 404 (`api/middleware/authorization.ts`).
  * То есть это был второй запрос к базе на каждое обращение и второе место, где
- * записано одно правило. Гарантию, что guard действительно стоит в цепочке,
- * даёт `__tests__/unit/routes/category-order-authorization.test.ts` — тест на
- * проводку, а не совпадение проверок в двух местах.
+ * записано одно правило. Что guard действительно стоит в цепочке, проверяет
+ * интеграционный `integration/api/category-orders.redis.test.ts`: участник
+ * без роли ответственного получает 403 на каждом маршруте, который меняет
+ * категорию.
  *
  * `serializeBigInt` остаётся здесь: `telegramId` — BigInt в Prisma, и это
  * забота транспорта, а не сервиса.

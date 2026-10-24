@@ -1,5 +1,9 @@
 # 04.1 — Утечки между группами: что закрыто, что осталось, и как проверить
 
+> Историческая запись. Модульные тесты, пороги покрытия, `knip`,
+> `npm run any:check` и CI, которые упоминаются ниже, удалены 2026-10-24.
+> Что проверяется сейчас — в [README каталога](README.md).
+
 - **Приоритет:** P0 для шага 1 (проверка факта эксплуатации), P1 для шага 2
   (логирование), P1 для шага 3 (структурная причина)
 - **Оценка:** 1 ч шаг 1 · 2 ч шаг 2 · 0.5–1 дн шаг 3 · 2 ч шаг 4
@@ -15,8 +19,11 @@
 | `GET /api/order-items/:id/edit-history` | `requireGroupAdmin` — группа из запроса | `requireOrderItemGroupAdmin` — группа выводится из позиции: позиция → категорийный заказ → опрос → группа |
 | `GET /api/polls/user-stats/:userId` | `requireGroupAdmin` — только админство в названной группе | `requireGroupAdminOverUser` — админство **И** членство целевого пользователя в той же группе |
 
-Оба закрыты тестами (`__tests__/unit/middleware/authorization.test.ts`),
-включая случай «админ чужой группы с подставленным `groupId`».
+Оба закрыты тестами, включая случай «админ чужой группы с подставленным
+`groupId`». Модульный `__tests__/unit/middleware/authorization.test.ts` удалён
+2026-10-24; сейчас это проверяют интеграционные
+`integration/api/category-orders.redis.test.ts` (история правок: доступ) и
+`integration/api/polls-read.routes.test.ts` (`/api/polls/user-stats/:userId`).
 
 **Что это НЕ закрывает:** причину. `requireGroupAdmin` по-прежнему берёт
 `groupId` из запроса и по-прежнему стоит на 8 маршрутах.
@@ -114,7 +121,9 @@
 падает, если под `requireGroupAdmin` появился новый маршрут, не внесённый в
 явный список «здесь ресурс со группой связывает сервис, проверено». Не
 исправляет дизайн, но превращает молчаливую утечку в красный тест. Образец
-готов — `__tests__/unit/routes/category-order-authorization.test.ts`.
+был — `__tests__/unit/routes/category-order-authorization.test.ts`, но его
+удалили 2026-10-24; ближайший живой обход стека маршрутов — таблица маршрутов
+в `integration/api/auth-surface.routes.test.ts`.
 
 **B. Resource-scoped guard на каждый тип ресурса (0.5–1 дн, рекомендую).**
 Продолжить то, что уже начато в задаче 04: `requireMenuItemGroupAdmin`,

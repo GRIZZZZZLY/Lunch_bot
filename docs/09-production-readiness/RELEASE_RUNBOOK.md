@@ -46,30 +46,26 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 ## 3. Проверка исходников
 
-Использовать Node.js 22 LTS:
+CI на GitHub нет, и выкат сам ничего не проверяет. Коммит в `main` должен
+пройти полный локальный прогон на Node.js 22 LTS с PostgreSQL и Redis:
+
+```bash
+bash scripts/check-all.sh
+```
+
+Скрипт не смотрит на уязвимости зависимостей и схему Prisma. Их проверить
+отдельно:
 
 ```bash
 cd backend
-npm ci
-npm run db:generate
 npm run db:validate
-npm run db:format:check
-npm run lint
-npm run build:prod
-npm test -- --runInBand
 npm audit --omit=dev --audit-level=high
 
 cd ../frontend-new
-npm ci
-npm run type-check
-npm run lint
-npm test -- --run
-npm run build
 npm run audit:prod
 ```
 
-CI на ветке `main` выполняет эти проверки с PostgreSQL. Не
-выпускать коммит с красным CI.
+Не выпускать коммит, на котором что-то из этого красное.
 
 ## 4. Резервная копия до миграции
 
@@ -115,15 +111,16 @@ npx prisma migrate resolve --applied <точное_имя_миграции>
 
 ## 6. Развёртывание версии
 
-1. Зафиксировать тег/commit SHA и предыдущий образ.
-2. Собрать immutable-образ с `npm ci` и только production dependencies в
-   рабочем слое.
-3. Сначала запустить один новый экземпляр без трафика.
-4. Дождаться `/health/live=200`, `/health/ready=200`.
-5. Выполнить `PRODUCTION_SMOKE_TEST.md`.
-6. Подключать трафик постепенно; следить за 5xx, задержкой, Redis/PostgreSQL,
-   Telegram API и платежами.
-7. Только после стабильного периода заменить остальные экземпляры.
+1. Зафиксировать выпускаемый SHA и действующий релиз
+   (`readlink -f <repo>-releases/current`).
+2. На сервере, из исходного чекаута: `bash deploy-vps.sh`. Скрипт собирает
+   релиз в отдельном worktree, применяет миграции (`prisma migrate deploy`),
+   переключает `current` и пересоздаёт процесс PM2. Если новый релиз не
+   ответил на `/health`, скрипт сам возвращает предыдущий. Подробности —
+   [DEPLOYMENT.md](../../DEPLOYMENT.md).
+3. Дождаться `/health/live=200`, `/health/ready=200`.
+4. Выполнить `PRODUCTION_SMOKE_TEST.md`.
+5. Следить за 5xx, задержкой, Redis/PostgreSQL, Telegram API и платежами.
 
 ## 7. Минимальные оповещения
 
@@ -140,10 +137,11 @@ npx prisma migrate resolve --applied <точное_имя_миграции>
 
 Если миграция обратно совместима:
 
-1. убрать новый экземпляр из балансировщика;
-2. вернуть предыдущий immutable-образ;
-3. дождаться readiness и выполнить короткий smoke;
-4. не откатывать схему автоматически.
+1. на сервере выполнить `ROLLBACK=1 bash deploy-vps.sh`: скрипт ничего не
+   собирает, а переключает `current` на релиз из `.previous-release` и
+   пересоздаёт процесс PM2;
+2. дождаться readiness и выполнить короткий smoke;
+3. не откатывать схему автоматически: откат кода миграции не отменяет.
 
 Если миграция несовместима или данные повреждены:
 
@@ -152,7 +150,8 @@ npx prisma migrate resolve --applied <точное_имя_миграции>
 3. подтвердить пользователю точку восстановления и потерю данных после неё;
 4. запустить `restore-postgres.ps1`: он сначала проверит SHA-256 и выполнит
    пробное восстановление во временную БД;
-5. вернуть совместимый образ и проверить инварианты.
+5. вернуть совместимый релиз (`ROLLBACK=1 bash deploy-vps.sh`) и проверить
+   инварианты.
 
 Пример требует явного подтверждения цели:
 

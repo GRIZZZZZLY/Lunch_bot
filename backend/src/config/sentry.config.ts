@@ -44,7 +44,7 @@ export function initSentry() {
 
   // P0-6: release tag = git SHA (или версия из package.json как fallback).
   // Sentry группирует регрессии по release; без тега любой p95-выброс непонятно
-  // в какой деплой попадает. SENTRY_RELEASE можно проставить из CI:
+  // в какой деплой попадает. SENTRY_RELEASE можно проставить при выкате:
   //   SENTRY_RELEASE=$(git rev-parse --short HEAD) pm2 reload
   const release =
     process.env.SENTRY_RELEASE ||

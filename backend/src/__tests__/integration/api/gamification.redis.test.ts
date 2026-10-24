@@ -18,7 +18,7 @@
  *
  * Redis обязателен: служебные маршруты и голосование объявлены
  * `required: true` в middleware идемпотентности и без хранилища отвечают 503.
- * Лимитер выключается (`ENABLE_RATE_LIMIT=false`), как в CI-задании.
+ * Лимитер выключается (`ENABLE_RATE_LIMIT=false`), как в scripts/check-all.sh.
  */
 import request from 'supertest';
 

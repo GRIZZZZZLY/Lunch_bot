@@ -42,7 +42,8 @@
 - 628 inline-style объектов, 88 градиентов, 14 glass-деклараций; Tailwind фактически мёртв (~20 utility-классов из 743 `className=`).
 - Store Run: state machine на бэкенде полная (cron авто-переходы), фронт — 2 бага и ~8 UX-разрывов.
 - На момент исходного аудита тестов и линта не было. Сейчас настроены ESLint,
-  Vitest, Playwright, проверка TypeScript и production build в CI.
+  Vitest, Playwright, проверка TypeScript и production build; CI нет, они
+  запускаются локально через `scripts/check-all.sh`.
 
 ## Реестр багов
 

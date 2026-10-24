@@ -33,7 +33,8 @@
    Пересобрать (Onest — OFL): CSS2 API Google Fonts с параметрами
    family=Onest:wght@400..700 и text=₽ отдаёт CSS с одним woff2 — его и
    положить в public/fonts/onest-ruble.woff2. Адрес API здесь не пишем:
-   tokens.test сторожит, чтобы домена CDN в этом файле не было. */
+   домена CDN в этом файле быть не должно. Раньше это сторожил tokens.test,
+   теперь он удалён. */
 @font-face {
   font-family: 'Onest';
   font-style: normal;

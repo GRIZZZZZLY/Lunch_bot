@@ -15,7 +15,8 @@ import { telegramValidationSkip } from '../../utils/env';
  * Само решение живёт в `utils/env.ts`; здесь остаётся только реакция: в
  * production запрос обязан сломаться, а не пройти с выключенной проверкой.
  *
- * Текст исключения не менять — на него смотрит `telegram-auth.middleware.test.ts`.
+ * Отказ в production проверяет `integration/api/auth-surface.routes.test.ts`
+ * («в production обход подписи не работает»).
  */
 function shouldSkipSignatureCheck(): boolean {
   const decision = telegramValidationSkip();

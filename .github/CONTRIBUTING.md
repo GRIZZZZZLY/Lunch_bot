@@ -6,7 +6,11 @@
 git clone https://github.com/GRIZZZZZLY/Lunch_bot.git
 cd Lunch_bot
 git switch -c codex/short-description
+git config core.hooksPath .githooks
 ```
+
+Последняя команда включает хук `.githooks/pre-push`: при пуше в `main` он
+запускает все проверки проекта.
 
 Требования и первый запуск описаны в
 [README.md](../README.md) и
@@ -24,20 +28,16 @@ git switch -c codex/short-description
 
 ## Перед запросом на слияние
 
-```powershell
-npm --prefix backend run lint
-npm --prefix backend run build:prod
-npm --prefix backend test
+CI на GitHub нет, проверки запускаются только локально. Полный прогон:
 
-npm --prefix frontend-new run type-check
-npm --prefix frontend-new run type-check:e2e
-npm --prefix frontend-new run lint
-npm --prefix frontend-new test
-npm --prefix frontend-new run build
+```bash
+bash scripts/check-all.sh
 ```
 
-Для изменений пользовательского сценария запустите соответствующие проверки
-Playwright.
+Скрипту нужны PostgreSQL и Redis; адреса и порты по умолчанию описаны в
+[руководстве по тестированию](../docs/05-testing/README.md). Тот же скрипт
+запускает хук при пуше в `main`. Пушить в `main` с `--no-verify` нельзя:
+выкат на сервер других проверок не делает.
 
 ## Запрос на слияние
 

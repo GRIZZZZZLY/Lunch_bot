@@ -27,7 +27,7 @@ export async function withEnv<T>(vars: EnvPatch, fn: () => T | Promise<T>): Prom
   }
 }
 
-/** Токен бота, если окружение его не задало (CI задаёт свой). */
+/** Токен бота, если окружение его не задало (scripts/check-all.sh задаёт свой). */
 export const FALLBACK_BOT_TOKEN = '777000:auth-test';
 
 /** initData, подписанный так же, как его подписывает Telegram (HMAC-SHA256). */

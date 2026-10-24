@@ -29,8 +29,8 @@ import { BaseError } from '../utils/error';
  * ничто не мешало: проверяют они одну и ту же колонку.
  *
  * Почему не в сервисе, откуда его можно было бы экспортировать. Попытка была, и
- * она молча выключила проверку: юнит-тест
- * `__tests__/unit/services/order-calculation.service.test.ts` подменяет
+ * она молча выключила проверку: тогдашний юнит-тест
+ * `__tests__/unit/services/order-calculation.service.test.ts` подменял
  * модуль `./category-order.service` через `jest.mock`, поэтому импортированная
  * оттуда константа становится `undefined`, а `value > undefined` — всегда
  * `false`. Тест «доставка сверх лимита — расчёт отклоняется» при этом стал

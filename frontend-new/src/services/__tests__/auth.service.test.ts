@@ -38,7 +38,7 @@ function serve(map: Record<string, Reply | Reply[]>): void {
 }
 
 /* База нужна для относительного адреса: локальный `.env` задаёт VITE_API_URL=/api,
-   а в CI его нет и транспорт берёт абсолютный адрес по умолчанию. */
+   а без `.env` его нет, и транспорт берёт абсолютный адрес по умолчанию. */
 const pathOf = (url: string) =>
   new URL(url, 'http://localhost').pathname.replace(/^\/api/, '');
 

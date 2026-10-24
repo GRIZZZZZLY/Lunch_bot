@@ -25,8 +25,8 @@ module.exports = {
     '!src/database/seeders/**',
   ],
   /* Полный прогон падал не на утверждении, а на «Jest worker ran out of memory»
-     и «Zone Allocation failed» — причём на СЛУЧАЙНОМ наборе, то есть красный CI
-     не указывал бы на виновника.
+     и «Zone Allocation failed» — причём на СЛУЧАЙНОМ наборе, то есть красный
+     прогон не указывал бы на виновника.
 
      Причина посчитана, а не угадана: по умолчанию Jest берёт `cpus - 1`
      воркеров (на машине разработки это 11), каждый держит свой кэш ts-jest и по
@@ -53,8 +53,8 @@ module.exports = {
 
      Redis нужен потому, что изменяющие маршруты бюджета объявлены
      `required: true` в middleware идемпотентности: без хранилища они отвечают
-     503, и сценарии не проверяли бы ничего. Запуск — отдельным шагом CI и
-     локально с REDIS_ENABLED=true. */
+     503, и сценарии не проверяли бы ничего. Запуск — `scripts/check-all.sh`
+     или вручную с REDIS_ENABLED=true. */
   testPathIgnorePatterns:
     process.env.REDIS_ENABLED === 'true'
       ? ['/node_modules/']

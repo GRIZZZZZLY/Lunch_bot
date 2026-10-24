@@ -1,6 +1,35 @@
 # Тестирование
 
+## Полный прогон
+
+CI на GitHub нет. Все проверки проекта собраны в `scripts/check-all.sh`, и
+другого списка нет:
+
+```bash
+bash scripts/check-all.sh
+```
+
+Шаги идут по порядку, первый упавший останавливает прогон: кодировка русского
+текста; Prisma Client, линтер и сборка сервера; все серверные тесты на
+настоящих PostgreSQL и Redis; типы, линтер, Vitest и сборка интерфейса;
+Playwright `mobile-chromium` на подставном API; Playwright `integration` с
+настоящим сервером, который скрипт сам поднимает на порту `API_PORT`.
+
+По умолчанию скрипт берёт PostgreSQL и Redis из WSL: порты 5433 и 6380. Другие
+адреса задают `TEST_DATABASE_URL`, `E2E_DATABASE_URL`, `REDIS_URL` и
+`API_PORT`; их описание — в шапке скрипта.
+
+Хук `.githooks/pre-push` запускает скрипт при пуше в `main`, если в клоне
+выполнено `git config core.hooksPath .githooks`. Пушить в `main` с
+`--no-verify` нельзя.
+
+Порогов покрытия, бюджетов Lighthouse и размера бандла, счётчика `any` и knip
+больше нет. Playwright гоняет только Chromium с мобильным экраном: проектов
+WebKit и настольного браузера нет.
+
 ## Быстрая проверка
+
+Без баз и браузеров, пока идёт работа:
 
 ```powershell
 npm --prefix backend run lint
@@ -56,6 +85,7 @@ npm --prefix frontend-new run build
 | `backend/src/__tests__/integration/api/` | HTTP-маршруты на настоящем приложении и тестовой базе |
 | `backend/src/__tests__/integration/bot/` | обработчики бота: настоящий `createBot()`, подменён только Telegram |
 | `backend/src/__tests__/integration/jobs/` | фоновые задачи |
+| `backend/src/__tests__/integration/*.integration.test.ts` | очередь исходящих сообщений, планировщик голосований, идемпотентность начисления XP |
 | `backend/src/__tests__/integration/helpers/` | общие помощники: вход (`api.ts`, `auth.ts`), поддельный Telegram (`bot.ts`), данные голосований (`polls.ts`), очистка базы (`fixtures.ts`), приложение (`testApp.ts`) |
 | `backend/src/__tests__/unit/` | только чистые функции, где ошибка дорогая: деньги, подписи и токены, разбор недоверенного ввода, экранирование сообщений Telegram |
 
@@ -67,7 +97,7 @@ jest их не собирает вовсе (см. `backend/jest.config.js`). Ф�
 
 | Переменная | Назначение |
 |---|---|
-| `TEST_DATABASE_URL` | тестовая PostgreSQL; по умолчанию `postgresql://foodbot:foodbot_password@localhost:5432/foodbot_test_db`. `globalSetup` создаёт базу и применяет миграции. Продакшен-базу не подставляйте никогда |
+| `TEST_DATABASE_URL` | тестовая PostgreSQL; у jest по умолчанию `postgresql://foodbot:foodbot_password@localhost:5432/foodbot_test_db`, у `check-all.sh` — та же база на порту 5433. `globalSetup` создаёт базу и применяет миграции. Продакшен-базу не подставляйте никогда |
 | `REDIS_ENABLED=true` | включает Redis и сбор файлов `*.redis.test.ts` |
 | `REDIS_URL` | адрес Redis, например `redis://127.0.0.1:6379/0` |
 | `ENABLE_RATE_LIMIT=false` | выключает лимитер в прогоне на Redis, иначе запросы набора упираются в его пределы. Сам лимитер входа проверяет отдельный экземпляр приложения в `auth-surface.routes.test.ts` |
@@ -86,7 +116,8 @@ npm --prefix backend test
 npm --prefix backend run test:unit
 ```
 
-Наборы на Redis запускаются отдельно, как в CI:
+С файлами на Redis весь набор запускает `scripts/check-all.sh`. Вручную,
+например только маршруты API:
 
 ```powershell
 $env:REDIS_ENABLED='true'; $env:REDIS_URL='redis://127.0.0.1:6379/0'; $env:ENABLE_RATE_LIMIT='false'
@@ -105,7 +136,7 @@ npm --prefix backend run test:unit -- src/__tests__/unit/utils/telegram-auth.tes
 npm --prefix backend test -- -t "название теста"
 ```
 
-Покрытие:
+Покрытие считается только по запросу, порогов нет:
 
 ```powershell
 npm --prefix backend run test:coverage -- --runInBand
@@ -114,19 +145,24 @@ npm --prefix backend run test:coverage -- --runInBand
 ## Основной интерфейс
 
 Модульные тесты (Vitest) лежат рядом с кодом, в каталогах `__tests__` внутри
-`frontend-new/src/`:
+`frontend-new/src/`. Их немного, и сторожат они деньги, доступ и сессию:
+модели отображения сумм и долгов, транспорт запросов и обновление сессии,
+несколько компонентов.
 
 ```powershell
 npm --prefix frontend-new test
+npm --prefix frontend-new run test:coverage   # покрытие по запросу, без порогов
 ```
 
-Сквозные сценарии:
+Сквозные сценарии на подставном API (проект `mobile-chromium`):
 
 ```powershell
 npm --prefix frontend-new run test:e2e
 ```
 
-Интеграция с настоящим локальным сервером:
+Интеграция с настоящим локальным сервером (проект `integration`). Сервер с
+тестовой базой должен уже работать; как его поднять, видно в последнем шаге
+`scripts/check-all.sh`:
 
 ```powershell
 npm --prefix frontend-new run test:e2e:integration

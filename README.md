@@ -3,8 +3,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/GRIZZZZZLY/Lunch_bot/actions/workflows/ci.yml"><img src="https://github.com/GRIZZZZZLY/Lunch_bot/actions/workflows/ci.yml/badge.svg" alt="Проверки проекта"></a>
-  <a href="https://github.com/GRIZZZZZLY/Lunch_bot/actions/workflows/docker-build.yml"><img src="https://github.com/GRIZZZZZLY/Lunch_bot/actions/workflows/docker-build.yml/badge.svg" alt="Сборка Docker-образов"></a>
   <img src="https://img.shields.io/badge/Node.js-22.13%2B-3E7A34" alt="Node.js 22.13 или новее">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-B4451F" alt="Лицензия MIT"></a>
 </p>
@@ -123,24 +121,27 @@ flowchart LR
 
 ## Проверка изменений
 
-```powershell
-# Сервер
-npm --prefix backend run lint
-npm --prefix backend run build:prod
-npm --prefix backend test
+CI на GitHub нет. Все проверки собраны в одном скрипте, его нужно пройти
+перед пушем в `main`:
 
-# Основной интерфейс
-npm --prefix frontend-new run type-check
-npm --prefix frontend-new run lint
-npm --prefix frontend-new test
-npm --prefix frontend-new run build
-
-# Критические пользовательские сценарии
-npm --prefix frontend-new run test:e2e:smoke
+```bash
+bash scripts/check-all.sh
 ```
 
-Серверные интеграционные тесты требуют отдельной тестовой базы PostgreSQL.
-Полный порядок описан в [руководстве по тестированию](docs/05-testing/README.md).
+Скрипт проверяет кодировку русского текста, линтер и сборку сервера, серверные
+тесты на настоящих PostgreSQL и Redis, типы, линтер, тесты и сборку
+интерфейса, затем сквозные сценарии Playwright: на подставном API и с
+настоящим сервером. Первый упавший шаг останавливает прогон.
+
+Git-хук `.githooks/pre-push` запускает скрипт сам при пуше в `main`. Включается
+один раз на клон:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Пушить в `main` с `--no-verify` нельзя. Где взять PostgreSQL и Redis для
+тестов, описано в [руководстве по тестированию](docs/05-testing/README.md).
 
 ## Документация
 
