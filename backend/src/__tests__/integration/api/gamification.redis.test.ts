@@ -311,8 +311,8 @@ describe('GET /api/gamification/user/* — свои опыт и достижен
       expect(seen).not.toHaveProperty('RETIRED');
     });
 
-    // BUG: скрытые достижения отфильтрованы всегда (isHidden: false в выборке) — полученное скрытое не видно никогда.
-    it.failing('полученное скрытое достижение показывается как открытое', async () => {
+    // Регрессия: скрытые достижения отсекались всегда, и полученное скрытое не было видно.
+    it('полученное скрытое достижение показывается как открытое', async () => {
       await seedAchievements();
 
       const response = await get('anna', '/api/gamification/user/achievements').expect(200);

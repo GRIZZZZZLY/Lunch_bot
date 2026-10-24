@@ -764,8 +764,13 @@ export class GamificationService {
    */
   static async getAchievementsWithStatus(userId: number): Promise<any[]> {
     const [allAchievements, userAchievements] = await Promise.all([
+      /* Скрытое прячется только до получения: фильтр `isHidden: false` без
+         этой оговорки не показывал полученное скрытое достижение никогда. */
       prisma.achievement.findMany({
-        where: { isActive: true, isHidden: false },
+        where: {
+          isActive: true,
+          OR: [{ isHidden: false }, { unlockedBy: { some: { userId } } }],
+        },
         orderBy: [{ rarity: 'asc' }, { id: 'asc' }],
       }),
       prisma.userAchievement.findMany({
