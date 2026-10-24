@@ -208,8 +208,8 @@ describe('блюда расписания — только живые блюда
     expect(await scheduleRow(created.id)).toEqual(before);
   });
 
-  it.failing.each(BAD_DISHES)('POST: %s — это ошибка запроса, 400, а не 500', async (_name, bad) => {
-    // BUG: контроллер не узнаёт ошибку «Selected menu items must be active and belong to the group» и отвечает 500.
+  it.each(BAD_DISHES)('POST: %s — это ошибка запроса, 400, а не 500', async (_name, bad) => {
+    // Регрессия: отказ «Selected menu items must be active and belong to the group» уходил клиенту 500-м.
     const response = await as.ann.post('/api/recurring', {
       groupId: w.groupA,
       daysOfWeek: EVERY_DAY,

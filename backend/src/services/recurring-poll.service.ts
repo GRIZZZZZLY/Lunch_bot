@@ -1,6 +1,7 @@
 import { RecurringPoll, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
+import { BaseError } from '../utils/error';
 import { PollService } from './poll.service';
 import { MenuService } from './menu.service';
 import { GroupService } from './group.service';
@@ -40,6 +41,21 @@ export interface RecurringPollWithRelations extends RecurringPoll {
 
 type RunStatus = 'SUCCESS' | 'SKIPPED_CONFLICT' | 'FAILED_NO_MENU' | 'FAILED_BOT_REMOVED' | 'FAILED_ERROR';
 
+/**
+ * В расписании блюдо чужой группы, выключенное или удалённое — ошибка запроса,
+ * а не сбой. Простой `Error` контроллер по тексту не узнавал и отвечал 500;
+ * класс несёт статус и код сам, их отдаёт error-handler.
+ */
+export class ScheduleMenuItemsInvalidError extends BaseError {
+  constructor() {
+    super(
+      'Selected menu items must be active and belong to the group',
+      400,
+      'INVALID_MENU_ITEM_IDS'
+    );
+  }
+}
+
 import { getBotInstance } from '../bot/bot-instance';
 import { PollQueryService } from './poll-query.service';
 
@@ -63,7 +79,7 @@ export class RecurringPollService {
     });
 
     if (matchingItems !== uniqueIds.length) {
-      throw new Error('Selected menu items must be active and belong to the group');
+      throw new ScheduleMenuItemsInvalidError();
     }
   }
 

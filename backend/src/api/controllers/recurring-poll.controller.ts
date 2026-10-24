@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { RecurringPollService } from '../../services/recurring-poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
+import { BaseError } from '../../utils/error';
 import { respondIfInvalidInput } from '../middleware/validate';
 import {
   createScheduleBody,
@@ -109,6 +110,8 @@ export const createSchedule = async (
     });
   } catch (error) {
     if (respondIfInvalidInput(req, res, error)) return;
+    /* Доменный отказ несёт статус и код сам — их отдаёт error-handler. */
+    if (error instanceof BaseError) throw error;
     logger.error('Error creating schedule:', error);
 
     let statusCode = 500;
@@ -195,6 +198,7 @@ export const updateSchedule = async (
     });
   } catch (error) {
     if (respondIfInvalidInput(req, res, error)) return;
+    if (error instanceof BaseError) throw error;
     logger.error('Error updating schedule:', error);
 
     let statusCode = 500;
