@@ -35,6 +35,8 @@ const SKIP_DIRS = new Set([
   '.auto-claude',
   '.agent',
   '.impeccable',
+  // Рабочие копии агентов (git worktree) — чужие версии файлов, а не дерево.
+  '.claude',
   'logs',
 ]);
 
