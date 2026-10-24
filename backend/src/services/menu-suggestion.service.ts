@@ -2,7 +2,19 @@ import { MenuSuggestion, Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { prisma } from '../database/client';
 import { toNumber } from '../utils/decimal';
+import { BaseError, ConflictError } from '../utils/error';
 import { GroupAccessError, GroupService } from './group.service';
+
+/* Отказы по правилу домена несут статус и код сами. Раньше это были обычные
+   Error, и контроллер отвечал на «уже разобрано», «нет такого» и «сначала
+   отклоните» одним 500 — клиент видел сбой сервера там, где ошибся запрос. */
+
+/** Предложения нет — тот же код, что у GET /api/suggestions/:id. */
+class SuggestionNotFoundError extends BaseError {
+  constructor() {
+    super('Suggestion not found', 404, 'NOT_FOUND');
+  }
+}
 
 export interface CreateSuggestionDTO {
   name: string;
@@ -166,16 +178,18 @@ export class MenuSuggestionService {
     });
 
     if (!suggestion) {
-      throw new Error('Suggestion not found');
+      throw new SuggestionNotFoundError();
     }
 
+    /* Группа сверяется ДО статуса: иначе админ чужой группы по 409 узнавал
+       бы, что предложение уже разобрано. */
+    this.assertSuggestionGroup(suggestion, groupId);
+
     if (suggestion.status !== 'PENDING') {
-      throw new Error('Suggestion already processed');
+      throw new ConflictError('Suggestion already processed');
     }
 
     // Создаём блюдо в меню той же группы, что и предложение
-    this.assertSuggestionGroup(suggestion, groupId);
-
     const menuItem = await prisma.menuItem.create({
       data: {
         name: suggestion.name,
@@ -246,14 +260,14 @@ export class MenuSuggestionService {
     });
 
     if (!suggestion) {
-      throw new Error('Suggestion not found');
-    }
-
-    if (suggestion.status !== 'PENDING') {
-      throw new Error('Suggestion already processed');
+      throw new SuggestionNotFoundError();
     }
 
     this.assertSuggestionGroup(suggestion, groupId);
+
+    if (suggestion.status !== 'PENDING') {
+      throw new ConflictError('Suggestion already processed');
+    }
 
     const updatedSuggestion = await prisma.menuSuggestion.update({
       where: { id: suggestionId },
@@ -411,7 +425,7 @@ export class MenuSuggestionService {
     });
 
     if (!suggestion) {
-      throw new Error('Suggestion not found');
+      throw new SuggestionNotFoundError();
     }
 
     this.assertSuggestionGroup(suggestion, groupId);
@@ -431,7 +445,7 @@ export class MenuSuggestionService {
         );
       }
       if (isPending) {
-        throw new Error('Cannot delete pending suggestion. Reject it first.');
+        throw new ConflictError('Cannot delete pending suggestion. Reject it first.');
       }
     }
 

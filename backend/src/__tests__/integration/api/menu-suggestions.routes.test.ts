@@ -362,30 +362,31 @@ describe('DELETE /api/suggestions/:id — кто что удаляет', () => {
 });
 
 describe('отказ по правилу домена — ошибка клиента, а не сбой сервера', () => {
-  /* BUG: сервис бросает обычный Error («already processed», «not found»,
-     «Cannot delete pending»), контроллер не различает его и отвечает 500.
-     Защита при этом работает (см. тесты выше), но клиент видит «сбой
-     сервера» и мониторинг считает его ошибкой приложения. */
-  it.failing.each<[string, (x: World) => [Who, string, object]]>([
-    ['повторное одобрение', x => ['anna', `/api/suggestions/${x.veraApproved}/approve`, { groupId: x.groupA }]],
-    ['одобрение несуществующего', x => ['anna', `/api/suggestions/${x.borisPending + 1000}/approve`, { groupId: x.groupA }]],
-  ])('%s — 4xx', async (_name, call) => {
+  // Регрессия: сервис бросал обычный Error, и на эти отказы приходил 500.
+  it.each<[string, (x: World) => [Who, string, object], number, string]>([
+    ['повторное одобрение', x => ['anna', `/api/suggestions/${x.veraApproved}/approve`, { groupId: x.groupA }],
+      409, 'CONFLICT_ERROR'],
+    ['одобрение несуществующего', x => ['anna', `/api/suggestions/${x.borisPending + 1000}/approve`, { groupId: x.groupA }],
+      404, 'NOT_FOUND'],
+    // Чужой админ не узнаёт по 409, что предложение уже разобрано.
+    ['одобрение разобранного админом другой группы', x => ['boris', `/api/suggestions/${x.veraApproved}/approve`, { groupId: x.groupB }],
+      403, 'NOT_ADMIN'],
+  ])('%s — 4xx', async (_name, call, status, code) => {
     const [who, url, body] = call(w);
     const res = await (await as(who)).post(url, body);
 
-    // BUG: отвечает 500 вместо 409/404.
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
+    expect(res.status).toBe(status);
+    expect(res.body.code).toBe(code);
   });
 
-  // BUG: удаление ожидающего админом отвечает 500 вместо 409.
-  it.failing('удаление ожидающего админом — 4xx', async () => {
+  // Регрессия: удаление ожидающего админом отвечало 500 вместо 409.
+  it('удаление ожидающего админом — 409', async () => {
     const res = await (await as('anna')).delete(`/api/suggestions/${w.veraPending}`, {
       groupId: w.groupA,
     });
 
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CONFLICT_ERROR');
   });
 });
 

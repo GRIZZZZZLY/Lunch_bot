@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../../types/api.types';
 import { MenuSuggestionService } from '../../services/menu-suggestion.service';
 import { GroupAccessError, GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
+import { BaseError } from '../../utils/error';
 import { collapseRepeatedValue, respondIfInvalidInput } from '../middleware/validate';
 import {
   createSuggestionBody,
@@ -46,6 +47,17 @@ function sendSuggestionError(
 
   if (error instanceof GroupAccessError) {
     res.status(403).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  // Отказ по правилу домена (404 «нет такого», 409 «уже разобрано»).
+  if (error instanceof BaseError) {
+    res.status(error.statusCode).json({
       success: false,
       error: error.message,
       code: error.code,
