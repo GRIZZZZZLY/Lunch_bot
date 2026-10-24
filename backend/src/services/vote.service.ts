@@ -29,6 +29,7 @@ import {
 import { PollNotFoundError } from './poll.errors';
 import { VoteQueryService } from './vote-query.service';
 import { VoteXpService } from './vote-xp.service';
+import { now, pollEndsAt } from '../utils/date';
 
 export class VoteService {
   /* Чтение вынесено в VoteQueryService (план закрытия, T6). Прежние имена
@@ -57,6 +58,8 @@ export class VoteService {
       where: { id: pollId },
       select: {
         status: true,
+        startedAt: true,
+        duration: true,
         endedAt: true,
         groupId: true,
         selectedMenuItemIds: true,
@@ -69,7 +72,11 @@ export class VoteService {
     if (poll.status !== 'ACTIVE') {
       throw new VotingError('Poll is not active');
     }
-    if (poll.endedAt && poll.endedAt < new Date()) {
+    /* Конец — по общему правилу `pollEndsAt`: у идущего голосования endedAt
+       пуст, и срок задают startedAt + duration. Проверка одного endedAt
+       принимала голоса после срока, пока планировщик не закрыл строку.
+       Граница строгая: ровно в момент окончания голос ещё принимается. */
+    if (pollEndsAt(poll) < now()) {
       throw new VotingError('Poll has expired');
     }
 

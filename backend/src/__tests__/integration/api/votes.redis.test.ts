@@ -246,8 +246,8 @@ describe('право голоса: POST /api/polls/:id/vote', () => {
     expect(await votesOf(poll.id)).toEqual([w.d1]);
   });
 
-  it.failing('после срока по таймеру (начало плюс длительность) голос не принимается', async () => {
-    // BUG: право голоса смотрит только на endedAt, а у идущего голосования он пуст; срок startedAt + duration не проверяется, и голос принимается, пока планировщик не закрыл строку.
+  it('после срока по таймеру (начало плюс длительность) голос не принимается', async () => {
+    // Регрессия: срок проверялся только по endedAt, и голос после startedAt + duration принимался.
     const poll = await pollInA({ startedAt: new Date(Date.now() - 60 * 60_000), duration: 30 });
 
     const response = await as.ann.post(`/api/polls/${poll.id}/vote`, { menuItemId: w.d1 });
