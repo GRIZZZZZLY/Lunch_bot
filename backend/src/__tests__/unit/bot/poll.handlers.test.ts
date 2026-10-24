@@ -24,7 +24,7 @@ import { PollCompletionService } from '../../../services/poll-completion.service
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
     cancelPoll: jest.fn(),
-    getPollResult: jest.fn(),
+    getPollResultByPollId: jest.fn(),
     savePollResult: jest.fn(),
   },
 }));
@@ -182,7 +182,7 @@ beforeEach(() => {
   });
   pollCompletion.completePoll.mockResolvedValue(COMPLETED_RESULT);
   pollService.cancelPoll.mockResolvedValue({ id: 5 });
-  pollService.getPollResult.mockResolvedValue(null);
+  pollService.getPollResultByPollId.mockResolvedValue(null);
   pollService.savePollResult.mockResolvedValue({ id: 1 });
 
   userService.getUserByTelegramId.mockResolvedValue({ id: 1 });
@@ -267,7 +267,7 @@ describe('handleRunRoulette', () => {
     ['без голосов рулетка не крутится', () => voteService.getPollVotes.mockResolvedValue([])],
     [
       'повторный запуск отклоняется',
-      () => pollService.getPollResult.mockResolvedValue({ responsibleUserId: 7 }),
+      () => pollService.getPollResultByPollId.mockResolvedValue({ responsibleUserId: 7 }),
     ],
   ])('%s', async (_name, arrange) => {
     arrange();

@@ -133,8 +133,9 @@ export async function handleRunRoulette(
       return;
     }
 
-    // Проверяем, не запускалась ли рулетка уже
-    const existingResult = await PollService.getPollResult(pollId);
+    // Проверяем, не запускалась ли рулетка уже. Поиск по id голосования:
+    // `getPollResult` ждёт id ИТОГА и бросает, когда итога ещё нет.
+    const existingResult = await PollService.getPollResultByPollId(pollId);
     if (existingResult?.responsibleUserId) {
       if ('answerCallbackQuery' in ctx) {
         await ctx.answerCallbackQuery('⚠️ Рулетка уже была запущена');
