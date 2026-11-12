@@ -75,9 +75,9 @@ export function DishSheet({
       title={title}
       onClose={onClose}
       closable={!busy && !deleting}
-      footer={
+      footer={(dismiss) => (
         <>
-          <Button variant="secondary" block disabled={busy || deleting} onClick={onClose}>
+          <Button variant="secondary" block disabled={busy || deleting} onClick={dismiss}>
             Отмена
           </Button>
           <Button
@@ -89,7 +89,7 @@ export function DishSheet({
             Сохранить
           </Button>
         </>
-      }
+      )}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* «Например:» в подсказках: без него «Пельмени с говядиной» и «350»

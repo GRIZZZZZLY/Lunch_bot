@@ -15,15 +15,17 @@ export function EditStoreItemSheet({
 }) {
   return (
     <BottomSheet title="Изменить позицию" onClose={onClose}>
-      {/* key по item.id: смена target пересоздаёт форму с новыми initial */}
-      <StoreItemForm
-        key={item.id}
-        initial={{ name: item.name, quantity: item.quantity, notes: item.notes ?? undefined }}
-        busy={busy}
-        submitLabel="Сохранить"
-        onCancel={onClose}
-        onSubmit={onSubmit}
-      />
+      {(dismiss) => (
+        /* key по item.id: смена target пересоздаёт форму с новыми initial */
+        <StoreItemForm
+          key={item.id}
+          initial={{ name: item.name, quantity: item.quantity, notes: item.notes ?? undefined }}
+          busy={busy}
+          submitLabel="Сохранить"
+          onCancel={dismiss}
+          onSubmit={onSubmit}
+        />
+      )}
     </BottomSheet>
   );
 }

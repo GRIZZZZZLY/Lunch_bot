@@ -76,16 +76,16 @@ export function ConfirmDialog({
       title={title}
       closable={!pending}
       onClose={onCancel}
-      footer={
+      footer={(dismiss) => (
         <>
-          <Button variant="secondary" block onClick={onCancel} disabled={pending}>
+          <Button variant="secondary" block onClick={dismiss} disabled={pending}>
             {cancelLabel}
           </Button>
           <Button variant={destructive ? 'danger' : 'primary'} block loading={pending} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </>
-      }
+      )}
     >
       {description && (
         <p style={{ margin: 0, fontSize: 'var(--text-15)', lineHeight: 1.55, color: 'var(--text-secondary)' }}>

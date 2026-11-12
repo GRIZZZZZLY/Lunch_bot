@@ -64,38 +64,43 @@ export function TeamSwitcher({ activity, busyCount }: TeamSwitcherProps) {
 
       {open && (
         <BottomSheet title="Команды" onClose={() => setOpen(false)}>
-          <div role="radiogroup" aria-label="Команда" className={styles.list}>
-            {activeGroups.map((g) => {
-              const id = String(g.id);
-              const selected = id === currentGroupId;
-              const statusId = `${uid}-${id}`;
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={g.title}
-                  aria-describedby={activity ? statusId : undefined}
-                  className={styles.option}
-                  onClick={() => {
-                    setCurrentGroupId(id);
-                    setOpen(false);
-                  }}
-                >
-                  <span className={styles.optionMain}>
-                    <span className={styles.optionTitle}>{g.title}</span>
-                    {activity && (
-                      <span id={statusId} className={`tnum ${styles.optionStatus}`}>
-                        <ActivityLine activity={activity[id] ?? {}} />
-                      </span>
-                    )}
-                  </span>
-                  {selected && <Icon name="check" size={16} />}
-                </button>
-              );
-            })}
-          </div>
+          {(dismiss) => (
+            <div role="radiogroup" aria-label="Команда" className={styles.list}>
+              {activeGroups.map((g) => {
+                const id = String(g.id);
+                const selected = id === currentGroupId;
+                const statusId = `${uid}-${id}`;
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={g.title}
+                    aria-describedby={activity ? statusId : undefined}
+                    className={styles.option}
+                    /* Команда меняется сразу, лист уходит вниз поверх уже
+                       обновляющегося экрана: выбор — не успех операции, и
+                       исчезать кадром листу незачем. */
+                    onClick={() => {
+                      setCurrentGroupId(id);
+                      dismiss();
+                    }}
+                  >
+                    <span className={styles.optionMain}>
+                      <span className={styles.optionTitle}>{g.title}</span>
+                      {activity && (
+                        <span id={statusId} className={`tnum ${styles.optionStatus}`}>
+                          <ActivityLine activity={activity[id] ?? {}} />
+                        </span>
+                      )}
+                    </span>
+                    {selected && <Icon name="check" size={16} />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </BottomSheet>
       )}
     </>

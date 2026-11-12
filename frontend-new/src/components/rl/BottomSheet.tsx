@@ -5,7 +5,12 @@
    (translateY(100%)), fade скрима,
    drag-to-dismiss 1:1 c velocity-порогом (~0.11 px/ms) и snap-back-пружиной.
    Программные закрытия (успех мутации — родитель убирает open) остаются
-   мгновенными намеренно: успех должен ощущаться быстрым. */
+   мгновенными намеренно: успех должен ощущаться быстрым.
+
+   Отмена — не успех. Кнопка «Отмена» уходит тем же путём, что крестик и
+   скрим: footer и children могут быть функцией и получают dismiss. Прямой
+   onClose из такой кнопки снимал лист одним кадром, хотя крестик рядом
+   уводил его вниз. */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from './primitives';
@@ -22,6 +27,16 @@ export function shouldDismissSheet(offsetPx: number, elapsedMs: number, sheetHei
   if (offsetPx <= 0) return false;
   const velocity = elapsedMs > 0 ? offsetPx / elapsedMs : 0;
   return velocity > 0.11 || offsetPx > sheetHeight * 0.35;
+}
+
+/** Содержимое листа; функция получает dismiss — анимированное закрытие. */
+type SheetSlot = ReactNode | ((dismiss: () => void) => ReactNode);
+
+/* Отдельный компонент, а не вызов в рендере листа: dismiss читает ref'ы, и
+   вызов слота прямо в рендере линтер считает чтением ref'ов во время рендера.
+   Пропом dismiss уходит так же, как onClick крестика. */
+function Slot({ value, dismiss }: { value: SheetSlot; dismiss: () => void }) {
+  return <>{typeof value === 'function' ? value(dismiss) : value}</>;
 }
 
 function prefersReducedMotion(): boolean {
@@ -52,8 +67,8 @@ export function BottomSheet({
 }: {
   title: ReactNode;
   onClose: () => void;
-  children: ReactNode;
-  footer?: ReactNode;
+  children: SheetSlot;
+  footer?: SheetSlot;
   role?: 'dialog' | 'alertdialog';
   /** false — закрытие заблокировано (мутация в полёте): Escape/backdrop/
       BackButton/drag игнорируются ещё ДО exit-анимации. */
@@ -223,8 +238,12 @@ export function BottomSheet({
               <IconButton variant="ghost" size="sm" name="x" aria-label="Закрыть" onClick={beginClose} />
             )}
           </div>
-          {children}
-          {footer && <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>{footer}</div>}
+          <Slot value={children} dismiss={beginClose} />
+          {footer && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <Slot value={footer} dismiss={beginClose} />
+            </div>
+          )}
         </div>
       </div>
     </div>,

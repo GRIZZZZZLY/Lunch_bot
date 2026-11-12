@@ -79,9 +79,9 @@ export function AddStoreItemSheet({
       onClose={onClose}
       closable={!busy}
       footer={
-        presetsTab ? (
+        presetsTab ? (dismiss) => (
           <>
-            <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={onClose}>
+            <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={dismiss}>
               Отмена
             </Button>
             <Button
@@ -96,40 +96,44 @@ export function AddStoreItemSheet({
         ) : undefined
       }
     >
-      {hasPresets && (
-        <div style={{ marginBottom: 14 }}>
-          <Segmented<Tab>
-            options={[
-              { value: 'presets', label: 'Мои товары' },
-              { value: 'manual', label: 'Новая' },
-            ]}
-            value={effectiveTab}
-            onChange={setTab}
-          />
-        </div>
-      )}
+      {(dismiss) => (
+        <>
+          {hasPresets && (
+            <div style={{ marginBottom: 14 }}>
+              <Segmented<Tab>
+                options={[
+                  { value: 'presets', label: 'Мои товары' },
+                  { value: 'manual', label: 'Новая' },
+                ]}
+                value={effectiveTab}
+                onChange={setTab}
+              />
+            </div>
+          )}
 
-      {presetsTab ? (
-        presetsLoading ? (
-          <p style={{ margin: '18px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Загружаем…
-          </p>
-        ) : (
-          <ItemPresetList
-            presets={presets}
-            selectedIds={selectedIds}
-            alreadyAdded={alreadyAdded}
-            busy={busy}
-            onToggle={toggle}
-            onTogglePin={(preset) => onTogglePin?.(preset)}
-            onRemove={(id) => {
-              setSelectedIds((ids) => ids.filter((x) => x !== id));
-              onRemovePreset?.(id);
-            }}
-          />
-        )
-      ) : (
-        <StoreItemForm busy={busy} submitLabel="Добавить" onCancel={onClose} onSubmit={onSubmit} />
+          {presetsTab ? (
+            presetsLoading ? (
+              <p style={{ margin: '18px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                Загружаем…
+              </p>
+            ) : (
+              <ItemPresetList
+                presets={presets}
+                selectedIds={selectedIds}
+                alreadyAdded={alreadyAdded}
+                busy={busy}
+                onToggle={toggle}
+                onTogglePin={(preset) => onTogglePin?.(preset)}
+                onRemove={(id) => {
+                  setSelectedIds((ids) => ids.filter((x) => x !== id));
+                  onRemovePreset?.(id);
+                }}
+              />
+            )
+          ) : (
+            <StoreItemForm busy={busy} submitLabel="Добавить" onCancel={dismiss} onSubmit={onSubmit} />
+          )}
+        </>
       )}
     </BottomSheet>
   );

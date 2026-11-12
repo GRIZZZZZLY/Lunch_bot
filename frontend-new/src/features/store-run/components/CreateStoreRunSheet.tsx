@@ -75,16 +75,16 @@ export function CreateStoreRunSheet({
     <BottomSheet
       title="Новая закупка"
       onClose={onClose}
-      footer={
+      footer={(dismiss) => (
         <>
-          <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={onClose}>
+          <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={dismiss}>
             Отмена
           </Button>
           <Button variant="primary" icon="cart" style={{ flex: 1 }} loading={busy} disabled={!canSubmit} onClick={submit}>
             Открыть сбор
           </Button>
         </>
-      }
+      )}
     >
       <FormField label="Откуда заказываем" htmlFor="store-run-name">
         <StoreChips

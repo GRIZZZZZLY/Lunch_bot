@@ -117,6 +117,8 @@ test.describe('Закупка: действия инициатора', () => {
     const dialog = appPage.getByRole('alertdialog');
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: 'Отмена' }).click();
+    // Лист уходит вниз 200 мс; до конца ухода его «Закрыть сбор» ещё в DOM.
+    await expect(dialog).toBeHidden();
     expect(api.requests('POST', '/store-runs/601/start-shopping')).toHaveLength(0);
     await appPage.getByRole('button', { name: 'Закрыть сбор' }).click();
     await appPage.getByRole('alertdialog').getByRole('button', { name: 'Закрыть сбор' }).click();

@@ -123,16 +123,16 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
     <BottomSheet
       title="Реквизиты СБП"
       onClose={onClose}
-      footer={
+      footer={(dismiss) => (
         <>
-          <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={onClose}>
+          <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={dismiss}>
             Отмена
           </Button>
           <Button variant="primary" icon="check" style={{ flex: 1 }} loading={busy} onClick={handleSave}>
             Сохранить
           </Button>
         </>
-      }
+      )}
     >
       {saveError && (
         <div style={{ marginBottom: 'var(--space-3)' }}>

@@ -57,16 +57,16 @@ export function FeedbackModal({ open, onClose }: Props) {
     <BottomSheet
       title="Оставьте отзыв"
       onClose={onClose}
-      footer={
+      footer={(dismiss) => (
         <>
-          <Button variant="secondary" style={{ flex: 1 }} disabled={send.isPending} onClick={onClose}>
+          <Button variant="secondary" style={{ flex: 1 }} disabled={send.isPending} onClick={dismiss}>
             Отмена
           </Button>
           <Button variant="primary" icon="send" style={{ flex: 1 }} loading={send.isPending} disabled={!message.trim()} onClick={submit}>
             Отправить
           </Button>
         </>
-      }
+      )}
     >
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 'var(--text-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Оценка</div>

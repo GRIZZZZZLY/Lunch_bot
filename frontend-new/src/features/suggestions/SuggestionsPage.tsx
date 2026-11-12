@@ -347,9 +347,9 @@ function SuggestionSheet({
       title="Предложить блюдо"
       onClose={onClose}
       closable={!busy}
-      footer={
+      footer={(dismiss) => (
         <>
-          <Button variant="secondary" block disabled={busy} onClick={onClose}>
+          <Button variant="secondary" block disabled={busy} onClick={dismiss}>
             Отмена
           </Button>
           <Button
@@ -367,7 +367,7 @@ function SuggestionSheet({
             Отправить
           </Button>
         </>
-      }
+      )}
     >
       <div className={styles.form}>
         {/* Текст в шторке остаётся вместе с заполненной формой: переписывать
@@ -412,9 +412,9 @@ function RejectSheet({
       onClose={onClose}
       closable={!busy}
       role="alertdialog"
-      footer={
+      footer={(dismiss) => (
         <>
-          <Button variant="secondary" block disabled={busy} onClick={onClose}>
+          <Button variant="secondary" block disabled={busy} onClick={dismiss}>
             Отмена
           </Button>
           <Button
@@ -429,7 +429,7 @@ function RejectSheet({
             Отклонить
           </Button>
         </>
-      }
+      )}
     >
       <div className={styles.form}>
         {failure && <InlineNotice tone="critical">{failure}</InlineNotice>}
