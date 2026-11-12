@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { preloadable } from '@/app/preloadable';
 import { AuthGate } from '@/components/common/AuthGate';
 import { RootLayout } from '@/app/layouts/RootLayout';
 import { DetailLayout } from '@/app/layouts/DetailLayout';
@@ -17,37 +18,38 @@ import { useAppStore } from '@/store/useAppStore';
    бы ему лишний рейс по сети. Всё остальное грузится по требованию — Mini App
    открывают из чата на мобильной сети, и тянуть код закупки ради голосования
    значит платить за экран, который пользователь может не открыть.
-   Вкладки нижней навигации предзагружаются на простое (usePrefetchTabs),
-   поэтому переключение остаётся мгновенным. */
-const MenuPage = lazy(() => import('@/features/menu/MenuPage'));
-const StatsPage = lazy(() =>
+   Вкладки нижней навигации предзагружаются на простое (usePrefetchTabs) через
+   preload(): после него экран рисуется без Suspense (app/preloadable.tsx), и
+   переход въезжает уже с содержимым. */
+const MenuPage = preloadable(() => import('@/features/menu/MenuPage'));
+const StatsPage = preloadable(() =>
   import('@/features/stats/StatsPage').then((m) => ({ default: m.StatsPage })),
 );
-const ProfilePage = lazy(() =>
+const ProfilePage = preloadable(() =>
   import('@/features/profile/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 );
-const AdminPage = lazy(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })));
-const BudgetPage = lazy(() =>
+const AdminPage = preloadable(() => import('@/pages/AdminPage').then((m) => ({ default: m.AdminPage })));
+const BudgetPage = preloadable(() =>
   import('@/features/budget/BudgetPage').then((m) => ({ default: m.BudgetPage })),
 );
-const PollHistoryPage = lazy(() =>
+const PollHistoryPage = preloadable(() =>
   import('@/features/polls/PollHistoryPage').then((m) => ({ default: m.PollHistoryPage })),
 );
-const PollResultsPage = lazy(() =>
+const PollResultsPage = preloadable(() =>
   import('@/features/polls/PollResultsPage').then((m) => ({ default: m.PollResultsPage })),
 );
-const StoreRunPage = lazy(() =>
+const StoreRunPage = preloadable(() =>
   import('@/features/store-run/StoreRunPage').then((m) => ({ default: m.StoreRunPage })),
 );
-const SuggestionsPage = lazy(() =>
+const SuggestionsPage = preloadable(() =>
   import('@/features/suggestions/SuggestionsPage').then((m) => ({ default: m.SuggestionsPage })),
 );
-const NotFoundPage = lazy(() =>
+const NotFoundPage = preloadable(() =>
   import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
 
 // Dev-only: lazy, чтобы demo-код не попадал в production-бандл.
-const UiShowcasePage = lazy(() =>
+const UiShowcasePage = preloadable(() =>
   import('@/pages/UiShowcasePage').then((m) => ({ default: m.UiShowcasePage })),
 );
 
@@ -66,9 +68,9 @@ function usePrefetchTabs() {
        настоящая навигация повторит import сама. */
     const swallow = () => undefined;
     const prefetch = () => {
-      import('@/features/menu/MenuPage').catch(swallow);
-      import('@/features/stats/StatsPage').catch(swallow);
-      import('@/features/profile/ProfilePage').catch(swallow);
+      MenuPage.preload().catch(swallow);
+      StatsPage.preload().catch(swallow);
+      ProfilePage.preload().catch(swallow);
 
       /* До авторизации запросы вернут 401 и запишут в кэш ошибку — ждём.
          Ключи и queryFn берём из тех же фабрик, что и хуки страниц, иначе

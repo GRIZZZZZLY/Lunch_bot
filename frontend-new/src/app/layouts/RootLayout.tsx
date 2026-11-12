@@ -8,12 +8,12 @@ import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { RouteFallback } from '@/components/common/RouteFallback';
 import { ROOT_TABS } from '@/app/navigation';
-import { useBootReveal, usePageTransition, useRouteFocus } from '@/lib/motion';
+import { useBootReveal, useRouteFocus } from '@/lib/motion';
+import { PageFrame } from './PageFrame';
 import { ScreenHeaderContext, useScreenHeaderState } from './screenHeader';
 
 export function RootLayout() {
   const mainRef = useRef<HTMLElement>(null);
-  const pageRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
   const { header, api } = useScreenHeaderState();
   /* Пока ленивый чанк вкладки грузится, страница заголовок ещё не объявила:
@@ -23,7 +23,6 @@ export function RootLayout() {
      под key={pathname} и уже несёт анимацию перехода. Две анимации на одном
      узле — это снова два прихода подряд. */
   const boot = useBootReveal();
-  usePageTransition(pageRef, pathname);
   useRouteFocus(mainRef, pathname);
 
   return (
@@ -43,17 +42,20 @@ export function RootLayout() {
         >
           <ErrorBoundary>
             {/* key по пути — то, что перезапускает анимацию входа: без него React
-                переиспользует этот div, и на смене таба ничего не проигрывается.
+                переиспользует контейнер, и на смене таба ничего не проигрывается.
                 Страницу это не ломает: она и так размонтируется при смене
-                маршрута. */}
-            <div key={pathname} ref={pageRef} className="anim-page">
-              {/* Граница Suspense внутри layout'а, а не над ним: сверху она
-                  снимала вместе со страницей шапку и таббар, и загрузка чанка
-                  читалась как мигание всего приложения. */}
-              <Suspense fallback={<RouteFallback />}>
+                маршрута. Новая граница на каждый путь сразу показывает
+                заглушку, а не держит прошлую страницу.
+
+                Граница Suspense внутри layout'а, а не над ним: сверху она
+                снимала вместе со страницей шапку и таббар, и загрузка чанка
+                читалась как мигание всего приложения. Контейнер страницы —
+                внутри границы: вход стартует вместе с содержимым (PageFrame). */}
+            <Suspense key={pathname} fallback={<RouteFallback />}>
+              <PageFrame pathname={pathname}>
                 <Outlet />
-              </Suspense>
-            </div>
+              </PageFrame>
+            </Suspense>
           </ErrorBoundary>
         </main>
       </ScreenHeaderContext.Provider>

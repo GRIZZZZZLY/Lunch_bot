@@ -9,20 +9,19 @@ import { RouteFallback } from '@/components/common/RouteFallback';
 import { IconButton } from '@/components/rl/primitives';
 import { getWebApp } from '@/lib/telegram';
 import { closeTopOverlay, setBaseBackHandler } from '@/lib/backButton';
-import { useBootReveal, usePageTransition, useRouteFocus } from '@/lib/motion';
+import { useBootReveal, useRouteFocus } from '@/lib/motion';
+import { PageFrame } from './PageFrame';
 import { ScreenHeaderContext, useScreenHeaderState } from './screenHeader';
 
 export function DetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
-  const pageRef = useRef<HTMLDivElement>(null);
   const { header, api: headerApi } = useScreenHeaderState();
   /* Deep link открывает Mini App прямо здесь, минуя вкладки: кадр собирается
      так же, только без таббара — его на detail-экране нет. */
   const boot = useBootReveal();
 
-  usePageTransition(pageRef, location.pathname);
   useRouteFocus(mainRef, location.pathname);
 
   // location.key === 'default' — приложение открыто сразу на этом экране
@@ -90,14 +89,15 @@ export function DetailLayout() {
         >
           <ErrorBoundary>
             {/* См. RootLayout: key перезапускает анимацию входа при переходе
-                между detail-экранами, где layout остаётся тем же. */}
-            <div key={location.pathname} ref={pageRef} className="anim-page">
-              {/* См. RootLayout: граница внутри layout'а сохраняет контекстную
-                  шапку с заголовком, пока грузится чанк экрана. */}
-              <Suspense fallback={<RouteFallback />}>
+                между detail-экранами, где layout остаётся тем же; граница
+                внутри layout'а сохраняет контекстную шапку, пока грузится чанк
+                экрана; контейнер внутри границы стартует вход вместе с
+                содержимым. */}
+            <Suspense key={location.pathname} fallback={<RouteFallback />}>
+              <PageFrame pathname={location.pathname}>
                 <Outlet />
-              </Suspense>
-            </div>
+              </PageFrame>
+            </Suspense>
           </ErrorBoundary>
         </main>
       </ScreenHeaderContext.Provider>
