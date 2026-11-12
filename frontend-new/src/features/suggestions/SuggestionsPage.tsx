@@ -31,6 +31,9 @@ import {
   TextField,
 } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
+/* По пути, а не из shared/ui: через общий индекс FlipGroup однажды уехал в
+   чанк, который предзагружает каждая страница. */
+import { FlipGroup } from '@/shared/ui/FlipGroup';
 import { formatPrice } from '@/shared/lib/money';
 import { useRovingFocus } from '@/shared/lib/useRovingFocus';
 import type { MenuSuggestion, SuggestionStatus } from '@/types/models';
@@ -109,7 +112,9 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
     const meta = STATUS_META[s.status] ?? STATUS_META.PENDING;
     const isOwn = s.suggestedBy === user?.id;
     return (
-      <div key={s.id} className={styles.row}>
+      /* data-flip: при смене секции React пересоздаёт строку, и без явного
+         ключа FlipGroup не узнал бы в ней ту же карточку. */
+      <div key={s.id} className={styles.row} data-flip={`suggestion:${s.id}`}>
         <div className={styles.top}>
           <span className={styles.name}>{s.name}</span>
           {s.price != null && <span className={`tnum ${styles.price}`}>{formatPrice(s.price)}</span>}
@@ -174,7 +179,9 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
           {title}
           <span className={styles.sectionCount}>· {list.length}</span>
         </h2>
-        <div className={styles.group}>{list.map(row)}</div>
+        <div className={styles.group} data-flip-list>
+          {list.map(row)}
+        </div>
       </section>
     );
 
@@ -229,8 +236,13 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
         </div>
       )}
 
+      {/* Решение админа переносит карточку из «Ждут решения» в «Разобранные»:
+          FlipGroup ведёт её туда одним движением, а не стирает и рисует
+          заново. Обёрнут только загруженный список — смена скелета на данные
+          не анимируется. key по вкладке: «Все/Мои» — фильтр, а не событие,
+          и переключение остаётся мгновенным. */}
       {!error && !isLoading && items.length > 0 && (
-        <>
+        <FlipGroup key={tab} className={styles.list}>
           {section(isAdmin ? 'Ждут решения' : 'На рассмотрении', pending)}
           {section('Разобранные', decided)}
           <div className={styles.ctaWrap}>
@@ -238,7 +250,7 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
               Предложить блюдо
             </Button>
           </div>
-        </>
+        </FlipGroup>
       )}
 
       {formOpen && (

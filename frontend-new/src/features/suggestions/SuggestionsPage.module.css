@@ -92,6 +92,15 @@
   border-radius: var(--radius-block);
   background: var(--surface);
   box-shadow: var(--shadow-2);
+  /* Поля даёт сама строка, как в «Расчётах»: листок перелёта не шире её. */
+  --flip-lift-outset: 0px;
+}
+
+/* Обёртка FlipGroup: держит тот же шаг между секциями, что и .screen. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .row {
