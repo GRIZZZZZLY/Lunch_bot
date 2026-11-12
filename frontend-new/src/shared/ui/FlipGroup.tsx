@@ -131,6 +131,22 @@ function motionAllowed(root: HTMLElement): boolean {
   return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
+/**
+ * CSS-время в миллисекундах: и «200ms», и «.2s».
+ *
+ * Минификатор продакшен-сборки переписывает `--motion-in: 200ms` в `.2s`, а
+ * parseFloat единицу не читает: проявление новых строк получало 0.2 мс вместо
+ * 200 и на проде не играло нигде. В деве CSS не сжимается, и там было 200.
+ */
+export function cssTimeMs(value: string, fallback: number): number {
+  const v = value.trim();
+  const n = parseFloat(v);
+  if (!Number.isFinite(n)) return fallback;
+  if (v.endsWith('ms')) return n;
+  if (v.endsWith('s')) return n * 1000;
+  return n;
+}
+
 function tokens(root: HTMLElement) {
   const cs = getComputedStyle(root);
   const v = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
@@ -138,7 +154,7 @@ function tokens(root: HTMLElement) {
     arrive: v('--ease-arrive', 'cubic-bezier(0.33, 1, 0.68, 1)'),
     out: v('--ease-out', 'cubic-bezier(0.16, 1, 0.3, 1)'),
     shiftIn: v('--shift-in', '10px'),
-    motionIn: parseFloat(v('--motion-in', '200')) || 200,
+    motionIn: cssTimeMs(v('--motion-in', '200ms'), 200),
   };
 }
 
