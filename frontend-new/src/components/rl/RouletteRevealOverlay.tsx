@@ -1,8 +1,21 @@
 /* ROCKET LUNCH — roulette reveal (redesign v2).
-   Cycles through `names`, decelerates and lands on `winnerName`. */
-import { useEffect, useRef, useState } from 'react';
+   Cycles through `names`, decelerates and lands on `winnerName`.
+
+   Оверлей ведёт себя как лист (BottomSheet): портал у body, фон под inert,
+   Telegram «Назад» и Escape закрывают сначала его, фокус возвращается туда,
+   откуда открыли. Раньше «Назад» уводил со страницы итогов вместе с рулеткой,
+   а «Принято» снимал её одним кадром. Уход — зеркало входа: карточка гаснет
+   в центре, затемнение — следом (redesign-v2.css). */
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { pushOverlay } from '@/lib/backButton';
+import { deactivateBackground } from './BottomSheet';
 import { Avatar, Button, Confetti } from './primitives';
 import { Icon } from './Icon';
+
+/* Карточка уходит за --motion-fast (150 мс), затемнение — за 200: снимаем по
+   более долгому. */
+const EXIT_MS = 200;
 
 export function RouletteRevealOverlay({
   open,
@@ -44,6 +57,59 @@ function RouletteRun({
   );
   const [idx, setIdx] = useState(() => (reduceMotion ? winnerIndex : 0));
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const titleId = useId();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const [closing, setClosing] = useState(false);
+  const closingRef = useRef(false);
+  const releaseRef = useRef<(() => void) | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  /* Как у листа: слой снимается со стека сразу, повторный «Назад» во время
+     ухода идёт в навигацию; onClose — когда уход доигран. */
+  const beginClose = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    releaseRef.current?.();
+    setClosing(true);
+    window.setTimeout(() => onCloseRef.current(), reduceMotion ? 0 : EXIT_MS);
+  };
+  const beginCloseRef = useRef(beginClose);
+  // latest-ref: обновление вне рендера (правило react-hooks/refs)
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+    beginCloseRef.current = beginClose;
+  });
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    /* «Назад» и Escape закрывают и во время прокрутки: это явное «выйти». Тап
+       по затемнению — только после остановки, случайное касание розыгрыш не
+       прерывает. */
+    const registration = pushOverlay(() => beginCloseRef.current());
+    releaseRef.current = registration.release;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const reactivateBackground = deactivateBackground();
+    cardRef.current?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && registration.isTop()) {
+        e.stopPropagation();
+        beginCloseRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.body.style.overflow = prevOverflow;
+      registration.release();
+      // inert снимается до возврата фокуса: внутри inert-поддерева focus() не сработает
+      reactivateBackground();
+      previouslyFocused?.focus?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -69,17 +135,24 @@ function RouletteRun({
 
   const current = list[idx] ?? winnerName;
 
-  return (
-    <div className="rl" role="dialog" aria-modal="true">
+  return createPortal(
+    <div className="rl" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div
-        className="glass"
+        className={`glass roulette-scrim${closing ? ' is-closing' : ''}`}
         style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'color-mix(in srgb, var(--canvas) 78%, transparent)' }}
-        onClick={phase === 'done' ? onClose : undefined}
+        onClick={phase === 'done' ? beginClose : undefined}
       />
-      <div style={{ position: 'fixed', inset: 0, zIndex: 61, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <div className="surf-floating anim-pop" style={{ position: 'relative', width: '100%', maxWidth: 320, padding: 28, textAlign: 'center', overflow: 'hidden' }}>
+      {/* Центрирующий слой касаний не берёт: он во весь экран лежал поверх
+          затемнения, и тап мимо карточки до onClick затемнения не доходил. */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 61, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, pointerEvents: 'none' }}>
+        <div
+          ref={cardRef}
+          tabIndex={-1}
+          className={`surf-floating roulette-card${closing ? ' is-closing' : ' anim-pop'}`}
+          style={{ position: 'relative', width: '100%', maxWidth: 320, padding: 28, textAlign: 'center', overflow: 'hidden', outline: 'none', pointerEvents: closing ? 'none' : 'auto' }}
+        >
           <Confetti fire={phase === 'done'} count={32} />
-          <div style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 4 }}>
+          <div id={titleId} style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 4 }}>
             {phase === 'done' ? 'Сегодня заказывает' : 'Выбираем ответственного'}
           </div>
           <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, margin: '6px 0 14px' }}>
@@ -95,7 +168,7 @@ function RouletteRun({
           )}
           <div style={{ display: 'flex', gap: 8 }}>
             {phase === 'done' ? (
-              <Button variant="primary" icon="check" style={{ flex: 1 }} onClick={onClose}>
+              <Button variant="primary" icon="check" style={{ flex: 1 }} onClick={beginClose}>
                 Принято
               </Button>
             ) : (
@@ -106,6 +179,7 @@ function RouletteRun({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -45,10 +45,12 @@ function prefersReducedMotion(): boolean {
 
 /* Ловушка по Tab не останавливает виртуальный курсор скринридера: фон надо
    гасить `inert`. Лист живёт в портале у body, поэтому inert вешается на #root
-   целиком. Счётчик — на случай ConfirmDialog поверх обычного листа. */
+   целиком. Счётчик — на случай ConfirmDialog поверх обычного листа. Его же
+   берёт рулетка (RouletteRevealOverlay): счётчик должен быть один на все
+   оверлеи, иначе закрытие одного сняло бы inert из-под другого. */
 let openSheetCount = 0;
 
-function deactivateBackground(): () => void {
+export function deactivateBackground(): () => void {
   openSheetCount += 1;
   if (openSheetCount === 1) document.getElementById('root')?.setAttribute('inert', '');
   return () => {

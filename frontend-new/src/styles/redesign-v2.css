@@ -90,6 +90,12 @@
 @keyframes rl-sheet-out { to { transform: translateY(100%); } }
 @keyframes rl-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rl-fade-out { to { opacity: 0; } }
+
+/* Рулетка (RouletteRevealOverlay): уход — зеркало rl-pop без перелёта, в
+   центре, где карточка и появилась. Короче входа: уходу объяснять нечего. */
+.rl .roulette-scrim.is-closing { animation: rl-fade-out 200ms var(--ease-out) both; }
+.rl .roulette-card.is-closing { animation: rl-pop-out var(--motion-fast) var(--ease-out) both; }
+@keyframes rl-pop-out { to { opacity: 0; transform: scale(0.97); } }
 .rl .anim-pop { animation: rl-pop var(--motion-slow) var(--ease-spring) both; }
 .rl .spin { animation: rl-spin 0.8s linear infinite; }
 .rl .skeleton {
