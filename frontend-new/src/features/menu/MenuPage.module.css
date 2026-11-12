@@ -300,3 +300,10 @@
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-tint), 0 0 0 4px var(--focus-ring);
 }
+
+/* Обёртка FlipGroup: держит тот же шаг между списком и кнопкой, что и .screen. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

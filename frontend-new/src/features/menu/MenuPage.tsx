@@ -24,6 +24,9 @@ import { Button, IconButton, Switch } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { formatPriceOrDash } from '@/shared/lib/money';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
+/* По пути, а не из shared/ui: через общий индекс FlipGroup однажды уехал в
+   чанк, который предзагружает каждая страница. */
+import { FlipGroup } from '@/shared/ui/FlipGroup';
 import { DishSheet, type DishInput } from './components/DishSheet';
 import styles from './MenuPage.module.css';
 
@@ -218,76 +221,83 @@ export default function MenuPage() {
         </div>
       )}
 
-      {!isLoading && !error && filtered.length > 0 && (
-        <div className={styles.group}>
-          {filtered.map((d) => (
-            <div key={d.id} className={`${styles.row}${d.active ? '' : ` ${styles.archived}`}`}>
-              <div className={styles.rowMain}>
-                {/* Имя занимает строку целиком, чип «Скрыто» уехал к описанию.
-                    Рядом с именем он отбирал ~90 px: сначала «Борщ со сметаной»
-                    переносился на две строки, а с обрезкой превращался в
-                    «Борщ со см…». Имя — то, по чему ищут блюдо, и оно получает
-                    всю ширину; во второй строке запас есть. */}
-                <div className={styles.name}>
-                  <span className={styles.dishName}>{d.name}</span>
-                </div>
-                <div className={styles.meta}>
-                  {!d.active && <Status tone="neutral">Скрыто</Status>}
-                  {(d.desc || d.category) && (
-                    <span className={styles.desc}>{d.desc || d.category}</span>
+      {/* Добавленное блюдо проявляется, удалённое гаснет на своём месте, соседи
+          съезжают — FlipGroup, как в закупке. Обёрнут только загруженный
+          список: смена скелета на данные не анимируется. Ключ — фильтр: поиск
+          и категории пересоздают список мгновенно, без движения на каждый
+          введённый символ. */}
+      {!isLoading && !error && !isEmpty && (
+        <FlipGroup key={`${category}\u0000${query.trim().toLowerCase()}`} className={styles.list}>
+          {filtered.length > 0 && (
+            <div className={styles.group} data-flip-list>
+              {filtered.map((d) => (
+                <div key={d.id} className={`${styles.row}${d.active ? '' : ` ${styles.archived}`}`}>
+                  <div className={styles.rowMain}>
+                    {/* Имя занимает строку целиком, чип «Скрыто» уехал к описанию.
+                        Рядом с именем он отбирал ~90 px: сначала «Борщ со сметаной»
+                        переносился на две строки, а с обрезкой превращался в
+                        «Борщ со см…». Имя — то, по чему ищут блюдо, и оно получает
+                        всю ширину; во второй строке запас есть. */}
+                    <div className={styles.name}>
+                      <span className={styles.dishName}>{d.name}</span>
+                    </div>
+                    <div className={styles.meta}>
+                      {!d.active && <Status tone="neutral">Скрыто</Status>}
+                      {(d.desc || d.category) && (
+                        <span className={styles.desc}>{d.desc || d.category}</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* formatPrice, а не «{price} ₽»: это было единственное место в
+                      продукте, где деньги шли без разрядов — «1340 ₽» против
+                      «1 340 ₽» на остальных экранах.
+                      OrDash — потому что цена в схеме необязательная: блюдо без
+                      суммы роняло весь экран на `null.toLocaleString`. */}
+                  <span
+                    className={`tnum ${styles.price}`}
+                    aria-label={d.price == null ? 'Цена не указана' : undefined}
+                  >
+                    {formatPriceOrDash(d.price)}
+                  </span>
+                  {isAdmin && (
+                    <div className={styles.rowActions}>
+                      <Switch
+                        on={d.active}
+                        disabled={toggleMutation.isPending && toggleMutation.variables?.id === d.id}
+                        onChange={() =>
+                          toggleMutation.mutate({ id: d.id, groupId: currentGroupId ?? undefined })
+                        }
+                        aria-label={d.active ? `Скрыть «${d.name}»` : `Показать «${d.name}»`}
+                      />
+                      <IconButton
+                        name="edit"
+                        aria-label={`Изменить «${d.name}»`}
+                        onClick={() => {
+                          const raw = items.find((it) => it.id === d.id);
+                          if (raw) setEditTarget(raw);
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
-              </div>
-              {/* formatPrice, а не «{price} ₽»: это было единственное место в
-                  продукте, где деньги шли без разрядов — «1340 ₽» против
-                  «1 340 ₽» на остальных экранах.
-                  OrDash — потому что цена в схеме необязательная: блюдо без
-                  суммы роняло весь экран на `null.toLocaleString`. */}
-              <span
-                className={`tnum ${styles.price}`}
-                aria-label={d.price == null ? 'Цена не указана' : undefined}
-              >
-                {formatPriceOrDash(d.price)}
-              </span>
-              {isAdmin && (
-                <div className={styles.rowActions}>
-                  <Switch
-                    on={d.active}
-                    disabled={toggleMutation.isPending && toggleMutation.variables?.id === d.id}
-                    onChange={() =>
-                      toggleMutation.mutate({ id: d.id, groupId: currentGroupId ?? undefined })
-                    }
-                    aria-label={d.active ? `Скрыть «${d.name}»` : `Показать «${d.name}»`}
-                  />
-                  <IconButton
-                    name="edit"
-                    aria-label={`Изменить «${d.name}»`}
-                    onClick={() => {
-                      const raw = items.find((it) => it.id === d.id);
-                      if (raw) setEditTarget(raw);
-                    }}
-                  />
-                </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-
-      {!isLoading && !error && !isEmpty && (
-        <div className={styles.addWrap}>
-          {isAdmin ? (
-            <Button variant="secondary" block onClick={() => setAddOpen(true)}>
-              Добавить блюдо
-            </Button>
-          ) : (
-            // Была инструкция «пойдите найдите» вместо действия: путь до
-            // экрана предложений человек должен был проложить сам.
-            <Button variant="secondary" block onClick={() => navigate('/suggestions/mine')}>
-              Предложить блюдо
-            </Button>
           )}
-        </div>
+
+          <div className={styles.addWrap}>
+            {isAdmin ? (
+              <Button variant="secondary" block onClick={() => setAddOpen(true)}>
+                Добавить блюдо
+              </Button>
+            ) : (
+              // Была инструкция «пойдите найдите» вместо действия: путь до
+              // экрана предложений человек должен был проложить сам.
+              <Button variant="secondary" block onClick={() => navigate('/suggestions/mine')}>
+                Предложить блюдо
+              </Button>
+            )}
+          </div>
+        </FlipGroup>
       )}
 
       {addOpen && (
