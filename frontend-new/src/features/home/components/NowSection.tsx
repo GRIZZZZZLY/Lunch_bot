@@ -100,62 +100,68 @@ export function NowSection({
         </h2>
       </div>
 
-      {winner}
+      {/* Живой список FlipGroup Главной: новый победитель или закупка
+          проявляются, соседи съезжают, а не прыгают. Обёртка — только вокруг
+          строк: на время полёта дети списка получают фон карточки, и шапка с
+          корешком, идущие от края до края, срезали бы её скругления. */}
+      <div data-flip-list>
+        {winner}
 
-      {runs.map((r) => {
-        const st = RUN_STATUS[r.status] ?? { tone: 'neutral' as const, label: r.status };
-        return (
-          <button
-            key={r.id}
-            type="button"
-            className={`${styles.row} ${styles.tappable}`}
-            onClick={() => onOpenRun(r.id)}
-          >
-            <span className={`${styles.rowIcon} ${styles.shop}`} aria-hidden>
-              <Icon name="cart" size={18} />
-            </span>
-            <span className={styles.rowMain}>
-              <span className={styles.rowName}>{r.storeName}</span>
-              <span className={styles.rowSub}>
-                {r.initiator.firstName} ·{' '}
-                <span className={`tnum ${styles.prog}`}>{pluralItems(r.items.length)}</span>
+        {runs.map((r) => {
+          const st = RUN_STATUS[r.status] ?? { tone: 'neutral' as const, label: r.status };
+          return (
+            <button
+              key={r.id}
+              type="button"
+              className={`${styles.row} ${styles.tappable}`}
+              onClick={() => onOpenRun(r.id)}
+            >
+              <span className={`${styles.rowIcon} ${styles.shop}`} aria-hidden>
+                <Icon name="cart" size={18} />
               </span>
+              <span className={styles.rowMain}>
+                <span className={styles.rowName}>{r.storeName}</span>
+                <span className={styles.rowSub}>
+                  {r.initiator.firstName} ·{' '}
+                  <span className={`tnum ${styles.prog}`}>{pluralItems(r.items.length)}</span>
+                </span>
+              </span>
+              <Status tone={st.tone}>{st.label}</Status>
+              <RowChevron />
+            </button>
+          );
+        })}
+
+        {/* Строка целиком — одна кнопка в «Расчёты», как строки закупок и
+            победителя. Кнопки «Отметить · 260 ₽» здесь больше нет: она отмечала
+            долг одним касанием, а реквизитов на экране не было, и человек
+            отмечал, не переведя денег. Отметка живёт в «Расчётах», рядом с тем,
+            куда переводить. */}
+        {budget.kind !== 'hidden' && (
+          <button type="button" className={`${styles.row} ${styles.tappable}`} onClick={onOpenBudget}>
+            <BudgetMain budget={budget} />
+            {/* Нейтрально — всё, что ещё не пришло: свой долг (зелёный читался
+                как плюс на счёте) и оплаты, ждущие подтверждения сборщика
+                (зелёный читался как уже полученные деньги). */}
+            <span
+              className={`tnum ${styles.moneyVal}${
+                budget.kind === 'debt' || (budget.kind === 'collector' && budget.toConfirm > 0)
+                  ? ` ${styles.moneyValOwed}`
+                  : ''
+              }`}
+            >
+              {formatPrice(budget.amount)}
             </span>
-            <Status tone={st.tone}>{st.label}</Status>
             <RowChevron />
           </button>
-        );
-      })}
+        )}
 
-      {/* Строка целиком — одна кнопка в «Расчёты», как строки закупок и
-          победителя. Кнопки «Отметить · 260 ₽» здесь больше нет: она отмечала
-          долг одним касанием, а реквизитов на экране не было, и человек
-          отмечал, не переведя денег. Отметка живёт в «Расчётах», рядом с тем,
-          куда переводить. */}
-      {budget.kind !== 'hidden' && (
-        <button type="button" className={`${styles.row} ${styles.tappable}`} onClick={onOpenBudget}>
-          <BudgetMain budget={budget} />
-          {/* Нейтрально — всё, что ещё не пришло: свой долг (зелёный читался
-              как плюс на счёте) и оплаты, ждущие подтверждения сборщика
-              (зелёный читался как уже полученные деньги). */}
-          <span
-            className={`tnum ${styles.moneyVal}${
-              budget.kind === 'debt' || (budget.kind === 'collector' && budget.toConfirm > 0)
-                ? ` ${styles.moneyValOwed}`
-                : ''
-            }`}
-          >
-            {formatPrice(budget.amount)}
-          </span>
-          <RowChevron />
-        </button>
-      )}
-
-      {!hasContent && (
-        <div className={styles.row}>
-          <span className={styles.rowSub}>Пока тихо — ни закупок, ни долгов.</span>
-        </div>
-      )}
+        {!hasContent && (
+          <div className={styles.row}>
+            <span className={styles.rowSub}>Пока тихо — ни закупок, ни долгов.</span>
+          </div>
+        )}
+      </div>
 
       <div className={styles.perf}>
         <span className={styles.notch} />

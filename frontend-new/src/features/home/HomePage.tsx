@@ -4,8 +4,11 @@
    разовые и recurring опросы (одиночный выбор — Q1), создание закупки.
    FAB удалён: «Запустить голосование» — CTA талона, «Новая закупка» —
    кнопка секции «Сейчас», «Предложить блюдо» — в Меню и Профиле. */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+/* По пути, а не из shared/ui: через общий индекс FlipGroup однажды уехал в
+   чанк, который предзагружает каждая страница. */
+import { FlipGroup } from '@/shared/ui/FlipGroup';
 import type { LaunchAction } from '@/app/useLaunchLinkRoute';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -92,6 +95,20 @@ export function HomePage() {
 
   const sheets = useHomeSheets();
 
+  /* Конец отрыва талона — смена раскладки, о которой знает только TicketSlot.
+     FlipGroup снимает раскладку перед своим рендером, поэтому Главная
+     перерисовывается вместе с ним: пустой талон встаёт плавно, а «Сейчас» не
+     прыгает вверх. */
+  const [, onTearEnd] = useReducer((n: number) => n + 1, 0);
+
+  /* Каскад раскрытия — один раз, для команды, с которой экран открылся. Смена
+     команды пересоздаёт корень (key ниже), и класс на новом корне сыграл бы
+     каскад второй раз, хотя первого раскрытия больше нет. */
+  const [firstGroupId] = useState(currentGroupId);
+  const [teamChanged, setTeamChanged] = useState(false);
+  if (!teamChanged && currentGroupId !== firstGroupId) setTeamChanged(true);
+  const cascade = waitedForData && !teamChanged;
+
   const winnerVM = useMemo(
     () => winnerRowVM(lastCompletedPoll, lastPollResult, allMenu, winnerIsFresh),
     [lastCompletedPoll, lastPollResult, allMenu, winnerIsFresh],
@@ -130,8 +147,19 @@ export function HomePage() {
     return <FirstScreenSkeleton visible={showSkeleton} />;
   }
 
+  /* FlipGroup: талон и «Сейчас» меняют высоту и состав при открытом экране —
+     голосование закрылось, началось, отменено, появился победитель или
+     закупка. Без него соседи прыгали на новое место кадром.
+
+     key по команде: смена команды — переход к другому экрану, а не изменение
+     этого. Пересоздание делает её мгновенной и не даёт TicketSlot принять
+     пропавший на время загрузки опрос за закрытый: раньше смена команды при
+     идущем голосовании проигрывала отрыв талона. */
   return (
-    <div className={`rl ${styles.screen}${waitedForData ? ' anim-cascade' : ''}`}>
+    <FlipGroup
+      key={currentGroupId ?? 'none'}
+      className={`rl ${styles.screen}${cascade ? ' anim-cascade' : ''}`}
+    >
       {/* Обёртка держит место под талон (styles.ticketSlot): без неё приход
           данных сдвигал всё ниже на треть экрана. */}
       <div className={styles.ticketSlot}>
@@ -152,6 +180,7 @@ export function HomePage() {
           onExpire={onPollExpire}
           onRetry={retryActivePoll}
           onCreate={onCreatePollAction}
+          onTearEnd={onTearEnd}
         />
       </div>
 
@@ -198,6 +227,6 @@ export function HomePage() {
           onArchive={archiveManagedStore}
         />
       )}
-    </div>
+    </FlipGroup>
   );
 }

@@ -10,7 +10,7 @@
  * собственных запросах и обычно уже в кеше — терять их из-за моргнувшей сети на
  * опросе значит прятать горящий долг.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import type { MenuItem, Poll } from '@/types/models';
@@ -50,6 +50,10 @@ interface TicketSlotProps {
   onExpire: () => void;
   onRetry: () => void;
   onCreate: () => void;
+  /** Отрыв доиграл, и на месте талона сейчас встанет пустой. Состояние отрыва
+      живёт здесь, и без этого сигнала FlipGroup Главной не увидел бы смену:
+      место талона сжималось бы кадром, а «Сейчас» прыгало вверх. */
+  onTearEnd?: () => void;
 }
 
 export function TicketSlot({
@@ -69,6 +73,7 @@ export function TicketSlot({
   onExpire,
   onRetry,
   onCreate,
+  onTearEnd,
 }: TicketSlotProps) {
   const options: PollOptionVM[] = useMemo(
     () =>
@@ -113,10 +118,15 @@ export function TicketSlot({
   const [prevPollId, setPrevPollId] = useState<number | null>(pollId);
   const [cancelling, setCancelling] = useState(false);
   const [tearing, setTearing] = useState(false);
+  /* Голосование сменилось при открытом экране: новый талон или пустой на месте
+     ушедшего — событие, и оно проявляется (.anim-in). Талон, который был на
+     месте при открытии экрана, не проявляется: это не событие. */
+  const [arrived, setArrived] = useState(false);
 
   if (live && live !== frozen) setFrozen(live);
   if (pollId !== prevPollId) {
     setPrevPollId(pollId);
+    setArrived(true);
     if (cancelling) {
       setCancelling(false);
     } else if (prevPollId != null && pollId == null && !reduceMotion) {
@@ -126,9 +136,20 @@ export function TicketSlot({
 
   useEffect(() => {
     if (!tearing) return;
-    const t = setTimeout(() => setTearing(false), TEAR_MS);
+    const t = setTimeout(() => {
+      setTearing(false);
+      onTearEnd?.();
+    }, TEAR_MS);
     return () => clearTimeout(t);
-  }, [tearing]);
+  }, [tearing, onTearEnd]);
+
+  /* key по голосованию: каждая смена монтирует карточку заново, и .anim-in
+     играет на каждой, а не на первой. */
+  const settle = (card: ReactNode) => (
+    <div key={pollId ?? 'empty'} className={arrived ? 'anim-in' : undefined}>
+      {card}
+    </div>
+  );
 
   /* Раньше проверок загрузки и ошибки: рефетч после закрытия голосования не
      должен подменять уходящий талон скелетом. Обработчики пустые — карточка на
@@ -173,7 +194,7 @@ export function TicketSlot({
   }
 
   if (activePoll && endsAt) {
-    return (
+    return settle(
       <LunchTicket
         title={activePoll.title || 'Что заказываем на обед?'}
         options={options}
@@ -198,16 +219,16 @@ export function TicketSlot({
           setCancelling(true);
           cancelPoll.mutate({ pollId: activePoll.id });
         }}
-      />
+      />,
     );
   }
 
-  return (
+  return settle(
     <EmptyTicket
       canCreate={canCreate}
       hasGroup={hasGroup}
       onCreate={onCreate}
       scheduleHint={scheduleHint}
-    />
+    />,
   );
 }
