@@ -3,7 +3,8 @@
    Telegram BackButton (через lib/backButton), aria-labelledby, safe-area.
    Motion: вход снизу 220ms и уход туда же 200ms — путь один и тот же
    (translateY(100%)), fade скрима,
-   drag-to-dismiss 1:1 c velocity-порогом (~0.11 px/ms) и snap-back-пружиной.
+   drag-to-dismiss 1:1 c velocity-порогом (~0.11 px/ms) и snap-back-пружиной;
+   pointercancel (жест забрал браузер) возвращает лист, а не закрывает.
    Программные закрытия (успех мутации — родитель убирает open) остаются
    мгновенными намеренно: успех должен ощущаться быстрым.
 
@@ -173,6 +174,11 @@ export function BottomSheet({
     sheetRef.current.style.transform = `translateY(${d.offset}px)`;
   };
 
+  const snapBack = (el: HTMLDivElement) => {
+    el.style.transition = `transform ${SNAP_MS}ms var(--ease-spring)`;
+    el.style.transform = 'translateY(0)';
+  };
+
   const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d || d.pointerId !== e.pointerId || !sheetRef.current) return;
@@ -186,10 +192,40 @@ export function BottomSheet({
       beginCloseRef.current();
     } else {
       // snap-back пружиной
-      el.style.transition = `transform ${SNAP_MS}ms var(--ease-spring)`;
-      el.style.transform = 'translateY(0)';
+      snapBack(el);
     }
   };
+
+  /* Браузер забрал жест себе (прокрутка длинного листа, горизонтальный свайп
+     по чипам). Это не отпускание пальца, и закрывать по нему нельзя. Раньше
+     cancel шёл в onPointerEnd: при touch-action pan-y Chromium через ~20 px
+     вертикального свайпа присылал cancel, «скорость» выходила огромной, и
+     лист закрывался всегда — вернуть его на место было нельзя. */
+  const onPointerCancel = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId || !sheetRef.current) return;
+    drag.current = null;
+    snapBack(sheetRef.current);
+  };
+
+  /* touch-action браузер читает в момент касания, раньше наших обработчиков,
+     поэтому значение стоит заранее. Лист без прокрутки отдаёт вертикаль жесту
+     целиком (pan-x: горизонтальные ряды чипов по-прежнему листаются).
+     Длинный лист оставляет вертикаль прокрутке, а тянется за шапку (там
+     touch-action: none). ResizeObserver: лист становится прокручиваемым,
+     когда упирается в max-height, — в этот момент меняется и его размер. */
+  useLayoutEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const update = () => {
+      el.style.touchAction = el.scrollHeight > el.clientHeight + 1 ? 'pan-y' : 'pan-x';
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /* Свой контекст наложения у каждой шторки: вторая (подтверждение поверх
      правки) целиком ложится выше первой, и её затемнение накрывает нижнюю.
@@ -216,7 +252,7 @@ export function BottomSheet({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}
-          onPointerCancel={onPointerEnd}
+          onPointerCancel={onPointerCancel}
           style={{
             borderRadius: '22px 22px 0 0',
             padding: 20,
@@ -226,11 +262,12 @@ export function BottomSheet({
             // без contain прокрутка «пробивает» лист и уводит фон под ним
             overscrollBehavior: 'contain',
             outline: 'none',
-            touchAction: 'pan-y',
+            // touch-action ставит эффект выше: pan-x или pan-y по прокрутке
           }}
         >
-          <div style={{ width: 36, height: 4, borderRadius: 999, background: 'var(--divider)', margin: '0 auto 14px' }} />
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          {/* Ручка и шапка тянут лист всегда, даже длинный. */}
+          <div style={{ width: 36, height: 4, borderRadius: 999, background: 'var(--divider)', margin: '0 auto 14px', touchAction: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, touchAction: 'none' }}>
             <h3 id={titleId} className="font-head tight" style={{ margin: 0, fontSize: 'var(--text-18)', fontWeight: 700, lineHeight: 1.2, textWrap: 'balance' }}>
               {title}
             </h3>
