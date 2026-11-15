@@ -13,8 +13,8 @@
 - Сервер: `backend/`.
 - Продакшен: PostgreSQL 16 (та же версия, что в
   `docker-compose.production.yml`), Redis, PM2, Nginx и
-  `FRONTEND_DIR=frontend-new`. Выключенный кластер `14/main` на порту 5433 —
-  путь отката; `pg_dropcluster 14 main` только по решению владельца.
+  `FRONTEND_DIR=frontend-new`. Старый кластер `14/main` удалён по решению
+  владельца; откат базы — только из ночных копий (14 дней).
 - CI/CD на GitHub нет. Перед каждым пушем в `main` проходят все проверки:
   `bash scripts/check-all.sh` (git-хук `.githooks/pre-push` запускает его сам,
   если в клоне включено `git config core.hooksPath .githooks`). Пушить в `main`
