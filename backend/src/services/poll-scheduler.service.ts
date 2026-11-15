@@ -14,6 +14,7 @@ import {
 import { closeExpiredPoll, restoreActiveTimers } from './poll-timer.service';
 import type { TelegramSender } from '../types/bot.types';
 import { escapeMarkdown } from '../utils/telegram-html';
+import { safeTimeZone, zonedParts } from '../utils/timezone';
 import { createWebAppButton } from '../bot/keyboards/webapp.keyboard';
 
 /**
@@ -230,13 +231,8 @@ export class PollSchedulerService {
 
     try {
       const now = new Date();
-      const currentTime = now.toTimeString().slice(0, 5); // "HH:MM"
-      const currentDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
 
-      logger.debug('Checking schedules', {
-        time: currentTime,
-        day: currentDay,
-      });
+      logger.debug('Checking schedules', { at: now.toISOString() });
 
       // Получить все активные расписания
       const schedules = await RecurringPollService.getActiveSchedules();
@@ -252,6 +248,11 @@ export class PollSchedulerService {
       for (const schedule of schedules) {
         try {
           const daysOfWeek = JSON.parse(schedule.daysOfWeek) as number[];
+          // День недели и «сегодня» считаются по часам пояса группы, не сервера.
+          const zone = safeTimeZone(schedule.group.timezone);
+          const local = zonedParts(now, zone);
+          const currentDay = local.day;
+          const currentTime = local.time;
 
           // Проверка: подходит ли день недели
           if (!daysOfWeek.includes(currentDay)) {
@@ -275,11 +276,8 @@ export class PollSchedulerService {
 
           // Проверка: не выполняли ли уже сегодня
           if (schedule.lastRunAt) {
-            const lastRun = new Date(schedule.lastRunAt);
             const isSameDay =
-              lastRun.getDate() === now.getDate() &&
-              lastRun.getMonth() === now.getMonth() &&
-              lastRun.getFullYear() === now.getFullYear();
+              zonedParts(new Date(schedule.lastRunAt), zone).date === local.date;
 
             if (isSameDay) {
               logger.debug('Skipping schedule - already executed today', {

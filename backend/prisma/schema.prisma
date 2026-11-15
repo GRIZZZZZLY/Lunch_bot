@@ -14,15 +14,15 @@ model User {
   lastName                  String?                 @map("last_name")
   photoUrl                  String?                 @map("photo_url")
   avatarUrl                 String?                 @map("avatar_url")
-  avatarUpdatedAt           DateTime?               @map("avatar_updated_at")
+  avatarUpdatedAt           DateTime?               @map("avatar_updated_at") @db.Timestamptz(3)
   isAdmin                   Boolean                 @default(false) @map("is_admin")
   isActive                  Boolean                 @default(true) @map("is_active")
   participatesInPolls       Boolean                 @default(true) @map("participates_in_polls")
   paymentCard               String?                 @map("payment_card")
   paymentPhone              String?                 @map("payment_phone")
   paymentDetails            String?                 @map("payment_details")
-  createdAt                 DateTime                @default(now()) @map("created_at")
-  updatedAt                 DateTime                @updatedAt @map("updated_at")
+  createdAt                 DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdMenuItems          MenuItem[]
   responsiblePolls          PollResult[]
   createdPolls              Poll[]                  @relation("PollCreator")
@@ -66,8 +66,9 @@ model Group {
   type                      String                     @default("group")
   isActive                  Boolean                    @default(true) @map("is_active")
   settings                  String?                    @map("settings_json")
-  createdAt                 DateTime                   @default(now()) @map("created_at")
-  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  timezone                  String                     @default("Europe/Moscow")
+  createdAt                 DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
   polls                     Poll[]
   adminReminders            AdminReminder[]
   members                   GroupMember[]
@@ -91,14 +92,14 @@ model MenuItem {
   isActive     Boolean       @default(true) @map("is_active")
   createdBy    Int           @map("created_by")
   groupId      Int           @map("group_id")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   /**
    * Мягкое удаление. Жёсткое рвало историю: обнуляло menuItemId у всех голосов
    * и winnerMenuItemId у всех результатов, из-за чего в завершённых опросах
    * пропадал победитель. Блюдо уходит из каталога, связи остаются.
    */
-  deletedAt    DateTime?     @map("deleted_at")
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(3)
   creator      User          @relation(fields: [createdBy], references: [id])
   group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
   pollResults  PollResult[]
@@ -116,8 +117,8 @@ model Poll {
   groupId              Int                   @map("group_id")
   status               String                @default("ACTIVE")
   duration             Int                   @default(30)
-  startedAt            DateTime              @default(now()) @map("started_at")
-  endedAt              DateTime?             @map("ended_at")
+  startedAt            DateTime              @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt              DateTime?             @map("ended_at") @db.Timestamptz(3)
   createdBy            Int                   @map("created_by")
   messageId            Int?                  @map("message_id")
   chatId               BigInt?               @map("chat_id")
@@ -125,8 +126,8 @@ model Poll {
   isMultiSelect        Boolean               @default(true) @map("is_multi_select")
   maxSelections        Int                   @default(3) @map("max_selections")
   isAutomatic          Boolean               @default(false) @map("is_automatic")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
   result               PollResult?
   creator              User                  @relation("PollCreator", fields: [createdBy], references: [id])
   group                Group                 @relation(fields: [groupId], references: [id])
@@ -154,8 +155,8 @@ model PollParticipant {
   userId    Int      @map("user_id")
   status    String   @default("EXPECTED")
   reason    String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -172,8 +173,8 @@ model Vote {
   menuItemId   Int?      @map("menu_item_id")
   voteType     String    @default("MENU_ITEM") @map("vote_type")
   customOption String?   @map("custom_option")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   menuItem     MenuItem? @relation(fields: [menuItemId], references: [id])
   user         User      @relation(fields: [userId], references: [id])
   poll         Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
@@ -195,7 +196,7 @@ model PollResult {
   responsibleUserId Int       @map("responsible_user_id")
   totalVotes        Int       @default(0) @map("total_votes")
   rouletteData      String?   @map("roulette_data")
-  createdAt         DateTime  @default(now()) @map("created_at")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   winnerMenuItem    MenuItem? @relation(fields: [winnerMenuItemId], references: [id])
   responsibleUser   User      @relation(fields: [responsibleUserId], references: [id])
   poll              Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
@@ -218,15 +219,15 @@ model Transaction {
   serviceShare    Decimal?  @map("service_share")
   tipShare        Decimal?  @map("tip_share")
   status          String    @default("PENDING")
-  paidAt          DateTime? @map("paid_at")
-  confirmedAt     DateTime? @map("confirmed_at")
+  paidAt          DateTime? @map("paid_at") @db.Timestamptz(3)
+  confirmedAt     DateTime? @map("confirmed_at") @db.Timestamptz(3)
   disputedReason  String?   @map("disputed_reason")
   reminderCount   Int       @default(0) @map("reminder_count")
-  lastReminderAt  DateTime? @map("last_reminder_at")
+  lastReminderAt  DateTime? @map("last_reminder_at") @db.Timestamptz(3)
   debtMessageId   Int?      @map("debt_message_id") // Telegram message_id of debt notification
   debtChatId      String?   @map("debt_chat_id") // Telegram chat_id of debt notification
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   poll              Poll?      @relation(fields: [pollId], references: [id], onDelete: Cascade)
   storeRun          StoreRun?  @relation(fields: [storeRunId], references: [id], onDelete: Cascade)
@@ -267,8 +268,8 @@ model PollOrderCosts {
   tip          Decimal  @default(0)
   notes        String?
   enteredBy    Int      @map("entered_by")
-  enteredAt    DateTime @default(now()) @map("entered_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  enteredAt    DateTime @default(now()) @map("entered_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
@@ -283,13 +284,13 @@ model ResponsibleSelection {
   selectedUserId   Int?      @map("selected_user_id")
   volunteerUserId  Int?      @map("volunteer_user_id")
   rouletteWinnerId Int?      @map("roulette_winner_id")
-  timeoutAt        DateTime? @map("timeout_at")
+  timeoutAt        DateTime? @map("timeout_at") @db.Timestamptz(3)
   timeoutMinutes   Int       @default(3) @map("timeout_minutes")
-  completedAt      DateTime? @map("completed_at")
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(3)
   messageId        Int?      @map("message_id")
   chatId           BigInt?   @map("chat_id")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   poll           Poll  @relation(fields: [pollId], references: [id], onDelete: Cascade)
   selectedUser   User? @relation("ResponsibleUser", fields: [selectedUserId], references: [id])
@@ -305,7 +306,7 @@ model PaymentReminder {
   type          String   @default("AUTO")
   sentBy        Int?     @map("sent_by")
   message       String?
-  sentAt        DateTime @default(now()) @map("sent_at")
+  sentAt        DateTime @default(now()) @map("sent_at") @db.Timestamptz(3)
 
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   sender      User?       @relation(fields: [sentBy], references: [id])
@@ -317,7 +318,7 @@ model AdminReminder {
   id        Int      @id @default(autoincrement())
   userId    Int
   groupId   Int
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -332,8 +333,8 @@ model GroupMember {
   groupId             Int       @map("group_id")
   userId              Int       @map("user_id")
   role                String    @default("MEMBER")
-  joinedAt            DateTime  @default(now()) @map("joined_at")
-  leftAt              DateTime? @map("left_at")
+  joinedAt            DateTime  @default(now()) @map("joined_at") @db.Timestamptz(3)
+  leftAt              DateTime? @map("left_at") @db.Timestamptz(3)
   isActive            Boolean   @default(true) @map("is_active")
   participatesInPolls Boolean   @default(true) @map("participates_in_polls")
 
@@ -356,11 +357,11 @@ model MenuSuggestion {
   suggestedBy       Int       @map("suggested_by")
   groupId           Int       @map("group_id")
   reviewedBy        Int?      @map("reviewed_by")
-  reviewedAt        DateTime? @map("reviewed_at")
+  reviewedAt        DateTime? @map("reviewed_at") @db.Timestamptz(3)
   rejectionReason   String?   @map("rejection_reason")
   createdMenuItemId Int?      @map("created_menu_item_id")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   suggester User  @relation("SuggestionCreator", fields: [suggestedBy], references: [id])
   reviewer  User? @relation("SuggestionReviewer", fields: [reviewedBy], references: [id])
@@ -394,10 +395,10 @@ model CategoryOrder {
   totalItemsAmount       Decimal?  @default(0) @map("total_items_amount")
   totalAdditionalCosts   Decimal?  @default(0) @map("total_additional_costs")
   totalAmount            Decimal?  @map("total_amount")
-  createdAt              DateTime  @default(now()) @map("created_at")
-  updatedAt              DateTime  @updatedAt @map("updated_at")
-  calculationStartedAt   DateTime? @map("calculation_started_at")
-  calculationCompletedAt DateTime? @map("calculation_completed_at")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  calculationStartedAt   DateTime? @map("calculation_started_at") @db.Timestamptz(3)
+  calculationCompletedAt DateTime? @map("calculation_completed_at") @db.Timestamptz(3)
   participantMessages    String?   @map("participant_messages") // JSON: {userId: {messageId, chatId}}
 
   poll            Poll          @relation(fields: [pollId], references: [id], onDelete: Cascade)
@@ -421,8 +422,8 @@ model OrderItem {
   price           Decimal
   notes           String?
   enteredBy       Int      @map("entered_by")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   categoryOrder CategoryOrder      @relation(fields: [categoryOrderId], references: [id], onDelete: Cascade)
   user          User               @relation("OrderItemUser", fields: [userId], references: [id])
@@ -444,7 +445,7 @@ model OrderItemEditLog {
   oldValue     String?  @map("old_value")
   newValue     String?  @map("new_value")
   reason       String?
-  timestamp    DateTime @default(now())
+  timestamp    DateTime @default(now()) @db.Timestamptz(3)
 
   orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   editor    User      @relation("OrderItemEditor", fields: [editedBy], references: [id])
@@ -471,7 +472,7 @@ model UserStats {
   explorerRating      Int       @default(0) @map("explorer_rating")
   currentStreak       Int       @default(0) @map("current_streak")
   longestStreak       Int       @default(0) @map("longest_streak")
-  lastVoteDate        DateTime? @map("last_vote_date")
+  lastVoteDate        DateTime? @map("last_vote_date") @db.Timestamptz(3)
   pollsParticipated   Int       @default(0) @map("polls_participated")
   pollsWon            Int       @default(0) @map("polls_won")
   totalVotes          Int       @default(0) @map("total_votes")
@@ -489,8 +490,8 @@ model UserStats {
   randomChoices       Int       @default(0) @map("random_choices")
   winStreak           Int       @default(0) @map("win_streak")
   maxWinStreak        Int       @default(0) @map("max_win_streak")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   user                User      @relation("UserStats", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([totalXP])
@@ -512,7 +513,7 @@ model XPHistory {
   seasonId       Int?     @map("season_id")
   metadata       String?
   idempotencyKey String?  @unique @map("idempotency_key")
-  createdAt      DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   user   User    @relation("UserXPHistory", fields: [userId], references: [id], onDelete: Cascade)
   season Season? @relation(fields: [seasonId], references: [id])
@@ -539,8 +540,8 @@ model UserProgress {
   categoriesTried    Int      @default(0) @map("categories_tried")
   randomChoices      Int      @default(0) @map("random_choices")
   correctPredictions Int      @default(0) @map("correct_predictions")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([xp])
@@ -561,8 +562,8 @@ model Achievement {
   requirement String
   isHidden    Boolean           @default(false) @map("is_hidden")
   isActive    Boolean           @default(true) @map("is_active")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   unlockedBy  UserAchievement[]
 
   @@index([key])
@@ -577,7 +578,7 @@ model UserAchievement {
   userId        Int      @map("user_id")
   achievementId Int      @map("achievement_id")
   progress      Int      @default(100)
-  unlockedAt    DateTime @default(now()) @map("unlocked_at")
+  unlockedAt    DateTime @default(now()) @map("unlocked_at") @db.Timestamptz(3)
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
@@ -602,8 +603,8 @@ model Quest {
   duration    Int         @default(1)
   rarity      String      @default("COMMON")
   isActive    Boolean     @default(true) @map("is_active")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   userQuests  UserQuest[]
 
   @@index([key])
@@ -620,9 +621,9 @@ model UserQuest {
   status      String    @default("ACTIVE")
   progress    Int       @default(0)
   target      Int
-  startedAt   DateTime  @default(now()) @map("started_at")
-  completedAt DateTime? @map("completed_at")
-  expiresAt   DateTime  @map("expires_at")
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(3)
 
   user  User  @relation("UserQuests", fields: [userId], references: [id], onDelete: Cascade)
   quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
@@ -644,12 +645,12 @@ model Challenge {
   icon        String
   target      String
   reward      String
-  deadline    DateTime?
+  deadline    DateTime?               @db.Timestamptz(3)
   isActive    Boolean                 @default(true) @map("is_active")
-  startDate   DateTime                @default(now()) @map("start_date")
-  endDate     DateTime?               @map("end_date")
-  createdAt   DateTime                @default(now()) @map("created_at")
-  updatedAt   DateTime                @updatedAt @map("updated_at")
+  startDate   DateTime                @default(now()) @map("start_date") @db.Timestamptz(3)
+  endDate     DateTime?               @map("end_date") @db.Timestamptz(3)
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
   progress    UserChallengeProgress[]
 
   @@index([type])
@@ -665,9 +666,9 @@ model UserChallengeProgress {
   challengeId Int       @map("challenge_id")
   progress    Int       @default(0)
   isCompleted Boolean   @default(false) @map("is_completed")
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
 
@@ -683,13 +684,13 @@ model Season {
   number    Int         @unique
   name      String
   theme     String?
-  startDate DateTime    @map("start_date")
-  endDate   DateTime    @map("end_date")
+  startDate DateTime    @map("start_date") @db.Timestamptz(3)
+  endDate   DateTime    @map("end_date") @db.Timestamptz(3)
   isActive  Boolean     @default(false) @map("is_active")
   rewards   String?
   metadata  String?
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt @map("updated_at")
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   xpHistory XPHistory[]
 
   @@index([isActive])
@@ -709,13 +710,13 @@ model RecurringPoll {
   timeOfDay           String    @map("time_of_day")
   duration            Int       @default(30)
   selectedMenuItemIds String?   @map("selected_menu_item_ids")
-  lastRunAt           DateTime? @map("last_run_at")
-  nextRunAt           DateTime? @map("next_run_at")
+  lastRunAt           DateTime? @map("last_run_at") @db.Timestamptz(3)
+  nextRunAt           DateTime? @map("next_run_at") @db.Timestamptz(3)
   lastRunStatus       String?   @map("last_run_status")
   lastRunMessage      String?   @map("last_run_message")
   createdBy           Int       @map("created_by")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   creator User  @relation(fields: [createdBy], references: [id])
@@ -735,8 +736,8 @@ model DebtReminderSettings {
   minDebtAge      Int      @default(1) @map("min_debt_age")
   maxReminders    Int      @default(5) @map("max_reminders")
   createdBy       Int      @map("created_by")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   creator User  @relation("ReminderSettingsCreator", fields: [createdBy], references: [id])
@@ -751,8 +752,8 @@ model AdminNotificationSettings {
   notifyOnNewPoll  Boolean  @default(false) @map("notify_on_new_poll")
   notifyOnPollEnd  Boolean  @default(false) @map("notify_on_poll_end")
   notifyOnDebtPaid Boolean  @default(false) @map("notify_on_debt_paid")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
@@ -773,12 +774,12 @@ model StoreRun {
   /// появления GroupStore). Читающий код смотрит сюда, а не в связь.
   storeName      String    @map("store_name")
   status         String    @default("COLLECTING") // COLLECTING | SHOPPING | SETTLED | CANCELLED
-  collectUntil   DateTime  @map("collect_until")
-  shoppingAt     DateTime? @map("shopping_at")
-  settledAt      DateTime? @map("settled_at")
-  cancelledAt    DateTime? @map("cancelled_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  collectUntil   DateTime  @map("collect_until") @db.Timestamptz(3)
+  shoppingAt     DateTime? @map("shopping_at") @db.Timestamptz(3)
+  settledAt      DateTime? @map("settled_at") @db.Timestamptz(3)
+  cancelledAt    DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   groupMessageId Int?      @map("group_message_id")
   dmMessages     String?   @map("dm_messages")
 
@@ -807,13 +808,13 @@ model GroupStore {
   name           String
   normalizedName String    @map("normalized_name")
   createdById    Int       @map("created_by_id")
-  lastUsedAt     DateTime  @default(now()) @map("last_used_at")
+  lastUsedAt     DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
   usageCount     Int       @default(1) @map("usage_count")
   /// Soft delete: скрытый магазин исчезает из подсказок, но забеги, которые на
   /// него ссылаются, остаются целыми.
-  archivedAt     DateTime? @map("archived_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   group     Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdBy User       @relation("GroupStoreCreator", fields: [createdById], references: [id])
@@ -837,9 +838,9 @@ model UserItemPreset {
   notes          String?
   pinned         Boolean  @default(false)
   usageCount     Int      @default(1) @map("usage_count")
-  lastUsedAt     DateTime @default(now()) @map("last_used_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  lastUsedAt     DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation("UserItemPresets", fields: [userId], references: [id], onDelete: Cascade)
 
@@ -866,8 +867,8 @@ model Donation {
   status         String    @default("PENDING") // PENDING | PENDING_MANUAL | CONFIRMED | FAILED | EXPIRED
   externalId     String?   @unique @map("external_id") // Stars chargeId / Wallet orderId
   metadata       String?
-  createdAt      DateTime  @default(now()) @map("created_at")
-  confirmedAt    DateTime? @map("confirmed_at")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  confirmedAt    DateTime? @map("confirmed_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id])
 
@@ -890,8 +891,8 @@ model StoreItem {
   notes      String?
   price      Decimal?
   status     String   @default("REQUESTED") // REQUESTED | BOUGHT | NOT_FOUND
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   storeRun     StoreRun      @relation(fields: [storeRunId], references: [id], onDelete: Cascade)
   user         User          @relation("StoreItemOwner", fields: [userId], references: [id])
@@ -935,23 +936,23 @@ model OutboxEvent {
   /// (адресат заблокировал бота), а не «попробуем ещё когда-нибудь».
   status        String    @default("PENDING")
   attempts      Int       @default(0)
-  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at")
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
   /// Срок захвата обработчиком. Истёк — задание снова свободно, поэтому
   /// перезапуск посреди обработки не оставляет его захваченным навсегда.
-  claimedUntil  DateTime? @map("claimed_until")
+  claimedUntil  DateTime? @map("claimed_until") @db.Timestamptz(3)
 
   /// message_id доставленного сообщения — по нему сообщение можно потом
   /// отредактировать вместо отправки второго.
   sentMessageId Int?      @map("sent_message_id")
-  sentAt        DateTime? @map("sent_at")
+  sentAt        DateTime? @map("sent_at") @db.Timestamptz(3)
 
   /// Безопасная диагностика: категория и код, без текста ошибки. В тексте
   /// сетевой ошибки лежит URL запроса, а в нём токен бота.
   lastErrorCategory String? @map("last_error_category")
   lastErrorCode     Int?    @map("last_error_code")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   /// Идентичность события. Повтор API-запроса не создаёт второе задание того
   /// же перехода; новая законная смена состояния получает новый

@@ -10,6 +10,7 @@
  * Однопроцессная блокировка проверяется в scheduler-poll.integration.test.ts.
  */
 import cron from 'node-cron';
+import { zonedParts } from '../../../utils/timezone';
 import type { Group, User } from '@prisma/client';
 
 import { prisma } from '../../../database/client';
@@ -37,12 +38,16 @@ interface World {
 }
 
 /** Группа, админ-автор расписания и расписание «сейчас, каждый день». */
-async function world(menuItems: number, timeOfDay = NOW.toTimeString().slice(0, 5)): Promise<World> {
+async function world(
+  menuItems: number,
+  timeOfDay = zonedParts(NOW, 'Europe/Moscow').time,
+  timezone?: string
+): Promise<World> {
   const admin = await prisma.user.create({
     data: { telegramId: BigInt(9501), firstName: 'Админ' },
   });
   const group = await prisma.group.create({
-    data: { telegramId: BigInt(-100950), title: 'Автообеды' },
+    data: { telegramId: BigInt(-100950), title: 'Автообеды', ...(timezone && { timezone }) },
   });
   await addMember(group.id, admin.id, 'ADMIN');
   for (let i = 0; i < menuItems; i++) {
@@ -113,6 +118,23 @@ afterAll(async () => {
 });
 
 describe('тик планировщика', () => {
+  it('время расписания читается по часам пояса группы, а не сервера', async () => {
+    // 08:30 UTC — это 13:30 в Алма-Ате и 11:30 в Москве.
+    const w = await world(3, '13:30', 'Asia/Almaty');
+
+    await tick();
+
+    expect(await prisma.poll.count({ where: { groupId: w.group.id } })).toBe(1);
+  });
+
+  it('московское время в расписании группы из другого пояса не срабатывает', async () => {
+    const w = await world(3, '11:30', 'Asia/Almaty');
+
+    await tick();
+
+    expect(await prisma.poll.count({ where: { groupId: w.group.id } })).toBe(0);
+  });
+
   it('в назначенное время создаёт автоголосование в группе и сообщает админу', async () => {
     const w = await world(3);
 

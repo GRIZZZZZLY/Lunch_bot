@@ -7,6 +7,7 @@ import { withDistributedLock } from '../utils/distributed-lock';
 import { pluralForm } from '../utils/pluralize';
 import { escapeMarkdown } from '../utils/telegram-html';
 import { classifyTelegramError } from '../utils/telegram-errors';
+import { safeTimeZone, zonedParts } from '../utils/timezone';
 import { transactionGroupFilter } from '../services/budget-query.service';
 
 /**
@@ -285,13 +286,24 @@ async function sendRemindersForGroup(
 /**
  * Основная функция крон-задачи
  */
-async function runDebtReminderJob(): Promise<void> {
+async function runDebtReminderJob(options?: {
+  /** Только группы, у которых сейчас этот час по их часам (поясу группы). */
+  localHour?: number;
+}): Promise<void> {
   logger.info('[DebtReminderJob] Starting automatic debt reminder job');
 
   try {
     const reminderService = new ReminderSettingsService();
-    const groupsWithReminders =
-      await reminderService.getGroupsWithEnabledReminders();
+    const now = new Date();
+    const groupsWithReminders = (
+      await reminderService.getGroupsWithEnabledReminders()
+    ).filter(
+      settings =>
+        options?.localHour === undefined ||
+        Number(
+          zonedParts(now, safeTimeZone(settings.group.timezone)).time.slice(0, 2)
+        ) === options.localHour
+    );
 
     if (groupsWithReminders.length === 0) {
       logger.info('[DebtReminderJob] No groups with enabled reminders found');
@@ -329,18 +341,19 @@ async function runDebtReminderJob(): Promise<void> {
 
 /**
  * Инициализация крон-задачи
- * Запускается каждый день в 10:00 утра
+ * Срабатывает каждый час и берёт группы, у которых сейчас 10:00 по их часам:
+ * напоминание приходит в 10 утра по поясу группы, а не сервера.
  */
 export function initDebtReminderJob(): void {
-  // Cron pattern: '0 10 * * *' = каждый день в 10:00
-  const cronPattern = '0 10 * * *';
+  // Cron pattern: '0 * * * *' = в начале каждого часа
+  const cronPattern = '0 * * * *';
 
   cron.schedule(cronPattern, async () => {
     try {
       await withDistributedLock(
         'job:debt-reminder',
         55 * 60,
-        runDebtReminderJob
+        () => runDebtReminderJob({ localHour: 10 })
       );
     } catch (error) {
       logger.error('[DebtReminderJob] Distributed lock failed:', error);
@@ -355,6 +368,8 @@ export function initDebtReminderJob(): void {
 /**
  * Экспорт для ручного запуска (для тестирования)
  */
-export async function runDebtReminderJobManually(): Promise<void> {
-  await runDebtReminderJob();
+export async function runDebtReminderJobManually(options?: {
+  localHour?: number;
+}): Promise<void> {
+  await runDebtReminderJob(options);
 }

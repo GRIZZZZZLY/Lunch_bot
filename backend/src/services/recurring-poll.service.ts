@@ -6,6 +6,7 @@ import { PollService } from './poll.service';
 import { MenuService } from './menu.service';
 import { GroupService } from './group.service';
 import { isSameDay, addMinutes, format, addDays } from 'date-fns';
+import { DEFAULT_TIME_ZONE, nextZonedRun, safeTimeZone } from '../utils/timezone';
 
 interface CreateRecurringPollData {
   groupId: number;
@@ -30,6 +31,7 @@ export interface RecurringPollWithRelations extends RecurringPoll {
     id: number;
     telegramId: bigint;
     title: string;
+    timezone: string;
   };
   creator: {
     id: number;
@@ -127,7 +129,8 @@ export class RecurringPollService {
       // Вычисляем nextRunAt
       const nextRun = this.calculateNextRun(
         data.daysOfWeek,
-        data.timeOfDay
+        data.timeOfDay,
+        group.timezone
       );
 
       // Создаём расписание
@@ -174,6 +177,7 @@ export class RecurringPollService {
     try {
       const existing = await prisma.recurringPoll.findUnique({
         where: { id },
+        include: { group: { select: { timezone: true } } },
       });
 
       if (!existing) {
@@ -202,7 +206,11 @@ export class RecurringPollService {
       // Пересчитываем nextRunAt если изменились дни или время
       let nextRunAt = existing.nextRunAt;
       if (data.daysOfWeek || data.timeOfDay) {
-        nextRunAt = this.calculateNextRun(daysOfWeek, timeOfDay);
+        nextRunAt = this.calculateNextRun(
+          daysOfWeek,
+          timeOfDay,
+          existing.group.timezone
+        );
       }
 
       // Обновляем
@@ -289,6 +297,7 @@ export class RecurringPollService {
               id: true,
               telegramId: true,
               title: true,
+              timezone: true,
             },
           },
           creator: {
@@ -339,6 +348,7 @@ export class RecurringPollService {
               id: true,
               telegramId: true,
               title: true,
+              timezone: true,
             },
           },
           creator: {
@@ -562,13 +572,18 @@ export class RecurringPollService {
     try {
       const recurring = await prisma.recurringPoll.findUnique({
         where: { id: recurringId },
+        include: { group: { select: { timezone: true } } },
       });
 
       if (!recurring) return;
 
       const now = new Date();
       const daysOfWeek = JSON.parse(recurring.daysOfWeek);
-      const nextRun = this.calculateNextRun(daysOfWeek, recurring.timeOfDay);
+      const nextRun = this.calculateNextRun(
+        daysOfWeek,
+        recurring.timeOfDay,
+        recurring.group.timezone
+      );
 
       await prisma.recurringPoll.update({
         where: { id: recurringId },
@@ -585,41 +600,14 @@ export class RecurringPollService {
   }
 
   /**
-   * Вычисление следующего времени запуска
+   * Вычисление следующего времени запуска по часам пояса группы.
    */
-  static calculateNextRun(daysOfWeek: number[], timeOfDay: string): Date {
-    const now = new Date();
-    const [hours, minutes] = timeOfDay.split(':').map(Number);
-
-    // Проверяем сегодняшний день
-    const todayScheduled = new Date(now);
-    todayScheduled.setHours(hours, minutes, 0, 0);
-    
-    const currentDay = now.getDay();
-    const currentTime = now.toTimeString().slice(0, 5); // "HH:MM"
-    
-    // Если сегодня подходящий день И время ещё не прошло
-    if (daysOfWeek.includes(currentDay) && timeOfDay > currentTime) {
-      return todayScheduled;
-    }
-
-    // Иначе начинаем с завтрашнего дня
-    let nextDate = addDays(now, 1);
-    nextDate.setHours(hours, minutes, 0, 0);
-
-    // Ищем ближайший день из daysOfWeek
-    for (let i = 0; i < 7; i++) {
-      const dayOfWeek = nextDate.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-      
-      if (daysOfWeek.includes(dayOfWeek)) {
-        return nextDate;
-      }
-      
-      nextDate = addDays(nextDate, 1);
-    }
-
-    // Fallback: если не нашли (не должно случиться)
-    return addDays(now, 1);
+  static calculateNextRun(
+    daysOfWeek: number[],
+    timeOfDay: string,
+    timeZone: string = DEFAULT_TIME_ZONE
+  ): Date {
+    return nextZonedRun(daysOfWeek, timeOfDay, safeTimeZone(timeZone));
   }
 
   /**
@@ -692,6 +680,7 @@ export class RecurringPollService {
               id: true,
               telegramId: true,
               title: true,
+              timezone: true,
             },
           },
           creator: {

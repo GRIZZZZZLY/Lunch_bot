@@ -128,6 +128,55 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+describe('час рассылки по поясу группы', () => {
+  // 07:00 UTC — это 10:00 в Москве и 12:00 в Алма-Ате.
+  const AT = new Date('2026-11-16T07:00:00Z');
+
+  async function twoGroups() {
+    const moscow = await groupWithReminders(-100811);
+    const almaty = await groupWithReminders(-100812);
+    await prisma.group.update({ where: { id: almaty.group.id }, data: { timezone: 'Asia/Almaty' } });
+    const moscowDebtor = await debtor(moscow);
+    const almatyDebtor = await debtor(almaty);
+    await debt(moscow, moscowDebtor);
+    await debt(almaty, almatyDebtor);
+    return { moscowDebtor, almatyDebtor };
+  }
+
+  async function runAtFakeNow(options?: { localHour?: number }) {
+    jest.useFakeTimers({
+      now: AT,
+      doNotFake: [
+        'hrtime', 'nextTick', 'performance', 'queueMicrotask', 'setImmediate', 'clearImmediate',
+        'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout',
+      ],
+    });
+    try {
+      await runDebtReminderJobManually(options);
+    } finally {
+      jest.useRealTimers();
+    }
+  }
+
+  it('в 10 утра по часам группы напоминают только той группе, у которой сейчас 10', async () => {
+    const { moscowDebtor, almatyDebtor } = await twoGroups();
+
+    await runAtFakeNow({ localHour: 10 });
+
+    expect(sentTo(tg, moscowDebtor.telegramId)).toHaveLength(1);
+    expect(sentTo(tg, almatyDebtor.telegramId)).toHaveLength(0);
+  });
+
+  it('ручной запуск без часа берёт все группы', async () => {
+    const { moscowDebtor, almatyDebtor } = await twoGroups();
+
+    await runAtFakeNow();
+
+    expect(sentTo(tg, moscowDebtor.telegramId)).toHaveLength(1);
+    expect(sentTo(tg, almatyDebtor.telegramId)).toHaveLength(1);
+  });
+});
+
 describe('какие долги попадают в рассылку', () => {
   it.each([
     ['созревший неоплаченный, ни разу не напоминали', {}, true],
