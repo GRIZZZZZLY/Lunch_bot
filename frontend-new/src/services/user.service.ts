@@ -46,6 +46,11 @@ class UserService {
     return apiService.put<PaymentInfo>('/user/payment-info', data);
   }
 
+  /** 409 ACCOUNT_HAS_OPEN_ITEMS несёт `blockers`: что закрыть до удаления. */
+  deleteAccount() {
+    return apiService.delete<{ deleted: true }>('/user/me');
+  }
+
   getAvatar(userId: number) {
     return apiService.get<UserAvatar>(`/user/${userId}/avatar`);
   }

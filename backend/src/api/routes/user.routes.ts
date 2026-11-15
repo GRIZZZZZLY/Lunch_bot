@@ -11,6 +11,12 @@ const router = express.Router();
 router.get('/me', telegramAuthMiddleware, userController.getCurrentUser);
 
 /**
+ * DELETE /api/user/me
+ * Удаление своего аккаунта (обезличивание)
+ */
+router.delete('/me', telegramAuthMiddleware, userController.deleteAccount);
+
+/**
  * GET /api/user/payment-info
  * Получение платёжных данных текущего пользователя
  */

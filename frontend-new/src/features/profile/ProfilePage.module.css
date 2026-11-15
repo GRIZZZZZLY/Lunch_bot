@@ -187,6 +187,30 @@ button.row:active {
   border-top: 1px solid var(--divider);
 }
 
+/* Необратимое действие: цвет и подсветка из токенов опасности, а не акцента. */
+.danger {
+  color: var(--danger);
+}
+
+@media (hover: hover) {
+  button.row.danger:hover {
+    background: var(--danger-tint);
+  }
+}
+
+button.row.danger:active {
+  background: var(--danger-tint);
+}
+
+.blockers {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.blockers li + li {
+  margin-top: var(--space-2);
+}
+
 .rowMain {
   flex: 1;
   min-width: 0;

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userService, type PaymentInfo } from '@/services/user.service';
 import { pollsService } from '@/services/polls.service';
+import { apiService } from '@/services/api.service';
 import { queryKeys, type GroupKey } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -48,6 +49,22 @@ export function useUpdatePaymentInfo() {
     mutationFn: (data: PaymentInfo) => userService.updatePaymentInfo(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['user', 'payment-info'] });
+    },
+  });
+}
+
+/* После удаления любой запрос получает 401, и обычная переавторизация по
+   initData тут же завела бы новый профиль — человек «удалился» и сразу
+   вернулся. Поэтому переавторизацию выключаем, токены и кэш сбрасываем. */
+export function useDeleteAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => userService.deleteAccount(),
+    onSuccess: () => {
+      apiService.setReauthenticator(async () => false);
+      apiService.clearToken();
+      void qc.cancelQueries();
+      qc.clear();
     },
   });
 }

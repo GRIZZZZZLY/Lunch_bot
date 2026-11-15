@@ -60,6 +60,39 @@ test.describe('Профиль и настройки', () => {
   });
 });
 
+test.describe('Удаление аккаунта', () => {
+  test('незакрытое называется списком, аккаунт остаётся', async ({ appPage, api }) => {
+    api.fail('DELETE', '/user/me', {
+      status: 409,
+      error: 'Сначала закройте незавершённое',
+      code: 'ACCOUNT_HAS_OPEN_ITEMS',
+      blockers: ['Незакрытых долгов: 2. Оплатите свои долги и подтвердите или простите долги вам.'],
+      remaining: 1,
+    });
+    await appPage.goto('/profile');
+
+    await appPage.getByRole('button', { name: /Удалить аккаунт/ }).click();
+    await appPage.getByRole('alertdialog', { name: 'Удалить аккаунт?' }).getByRole('button', { name: 'Удалить' }).click();
+
+    await expect(appPage.getByText('Незакрытых долгов: 2.', { exact: false })).toBeVisible();
+    await expect(appPage.getByText('Анна Тестова')).toBeVisible();
+  });
+
+  test('после удаления приложение закрывается и не входит заново', async ({ appPage, api, telegram }) => {
+    await appPage.goto('/profile');
+    const validations = api.requests('POST', '/auth/validate').length;
+
+    await appPage.getByRole('button', { name: /Удалить аккаунт/ }).click();
+    await appPage.getByRole('alertdialog', { name: 'Удалить аккаунт?' }).getByRole('button', { name: 'Удалить' }).click();
+
+    await expect(appPage.getByText('Аккаунт удалён')).toBeVisible();
+    expect((await telegram.calls()).some((call) => call.method === 'close')).toBe(true);
+    /* Повторный вход по initData завёл бы новый профиль сразу после удаления. */
+    await appPage.waitForTimeout(500);
+    expect(api.requests('POST', '/auth/validate')).toHaveLength(validations);
+  });
+});
+
 test.describe('Статистика', () => {
   /* Тест закреплял баг: отказ чтения истории показывался как «Пока нет
      данных… после первых голосований команды», то есть как факт о команде.

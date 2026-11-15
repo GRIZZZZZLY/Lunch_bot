@@ -45,6 +45,8 @@ export interface FailureRule {
   code: string;
   remaining?: number;
   abort?: boolean;
+  /** Для 409 ACCOUNT_HAS_OPEN_ITEMS: что закрыть до удаления аккаунта. */
+  blockers?: string[];
 }
 
 export interface RequestRecord {
@@ -80,6 +82,8 @@ export interface E2EState {
   refreshAuth: boolean;
   expireProtectedRequestOnce: boolean;
   protectedRequestExpired: boolean;
+  /** После DELETE /user/me сервер отвечает 401 на всё, кроме /auth. */
+  accountDeleted?: boolean;
 }
 
 /** Часы браузера в каждом тесте. Мок сверяет с ними окна вроде суток на отмену

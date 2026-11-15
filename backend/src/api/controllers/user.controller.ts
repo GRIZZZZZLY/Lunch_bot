@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
 import { AvatarService } from '../../services/avatar.service';
+import { deleteAccount } from '../../services/account-deletion.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 import { requireAuthUser } from '../middleware/require-auth-user';
@@ -404,6 +405,44 @@ export class UserController {
       res.status(500).json({
         success: false,
         error: 'Failed to get user avatars',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/user/me
+   * Удаление своего аккаунта. 409 со списком того, что надо закрыть сначала.
+   */
+  static async deleteAccount(req: Request, res: Response): Promise<void> {
+    try {
+      const user = req.user;
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          error: 'User not authenticated',
+          code: 'NOT_AUTHENTICATED',
+        });
+        return;
+      }
+
+      const result = await deleteAccount(user.id);
+      if (!result.deleted) {
+        res.status(409).json({
+          success: false,
+          error: 'Сначала закройте незавершённое',
+          code: 'ACCOUNT_HAS_OPEN_ITEMS',
+          blockers: result.blockers,
+        });
+        return;
+      }
+
+      res.json({ success: true, data: { deleted: true }, timestamp: new Date().toISOString() });
+    } catch (error) {
+      logger.error('Error deleting account:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete account',
         code: 'INTERNAL_ERROR',
       });
     }

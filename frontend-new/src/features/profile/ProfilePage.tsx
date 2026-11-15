@@ -9,6 +9,7 @@ import { getAdminGroups, isGroupAdminRole } from '@/lib/permissions';
 import { usePendingSuggestionsCount } from '@/hooks/useSuggestions';
 import {
   PROFILE_HISTORY_LIMIT,
+  useDeleteAccount,
   useMyGroups,
   usePaymentInfo,
   usePollHistory,
@@ -21,7 +22,9 @@ import { FeedbackModal } from '@/components/modals/FeedbackModal';
 import { DonationModal } from '@/components/modals/DonationModal';
 import { SchemeThemeToggle } from '@/components/rl/SchemeThemeToggle';
 import { Icon } from '@/components/rl/Icon';
-import { InlineNotice, Skeleton, Status } from '@/shared/ui';
+import { ConfirmDialog, InlineNotice, Skeleton, Status } from '@/shared/ui';
+import { getWebApp } from '@/lib/telegram';
+import type { ApiError } from '@/services/api.service';
 import { pluralForm, pluralize } from '@/shared/lib/pluralize';
 import { formatPhone } from '@/shared/lib/phone';
 import styles from './ProfilePage.module.css';
@@ -50,6 +53,24 @@ export function ProfilePage() {
   const [sbpOpen, setSbpOpen] = useState(() => searchParams.get('edit') === 'payment');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  /* null — проблем нет; пустой список — сбой; иначе — что закрыть до удаления. */
+  const [deleteBlockers, setDeleteBlockers] = useState<string[] | null>(null);
+  const deleteAccount = useDeleteAccount();
+
+  const confirmDelete = async () => {
+    try {
+      await deleteAccount.mutateAsync();
+      setDeleteOpen(false);
+      getWebApp()?.close();
+    } catch (err) {
+      const e = err as Partial<ApiError>;
+      setDeleteBlockers(
+        e.code === 'ACCOUNT_HAS_OPEN_ITEMS' && Array.isArray(e.blockers) ? (e.blockers as string[]) : [],
+      );
+      setDeleteOpen(false);
+    }
+  };
 
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Гость';
   const handle = user?.username ? `@${user.username}` : 'Участник команды';
@@ -83,6 +104,18 @@ export function ProfilePage() {
 
   const statValue = (n: number, suffix = false) =>
     statsUnknown ? '—' : `${n}${suffix && atCap ? '+' : ''}`;
+
+  /* Вне Telegram (или если close() не сработал) экран профиля больше нечем
+     наполнить: данные стёрты, токены сброшены. */
+  if (deleteAccount.isSuccess) {
+    return (
+      <div className={`rl ${styles.screen}`}>
+        <InlineNotice tone="info" title="Аккаунт удалён">
+          Можно закрыть приложение. Если откроете его снова, начнёте с пустого профиля.
+        </InlineNotice>
+      </div>
+    );
+  }
 
   return (
     <div className={`rl ${styles.screen}`}>
@@ -265,6 +298,53 @@ export function ProfilePage() {
           </span>
         </button>
       </section>
+
+      {/* Над разделом, а не под ним: внизу список уходил под панель вкладок. */}
+      {deleteBlockers && deleteBlockers.length > 0 && (
+        <InlineNotice tone="warning" title="Сначала закройте незавершённое">
+          <ul className={styles.blockers}>
+            {deleteBlockers.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
+        </InlineNotice>
+      )}
+      {deleteBlockers && deleteBlockers.length === 0 && (
+        <InlineNotice tone="critical">Не удалось удалить аккаунт. Попробуйте ещё раз.</InlineNotice>
+      )}
+
+      <section className={styles.group} aria-label="Аккаунт">
+        <div className={styles.groupHead}>Аккаунт</div>
+        <button
+          type="button"
+          className={`${styles.row} ${styles.danger}`}
+          onClick={() => {
+            setDeleteBlockers(null);
+            setDeleteOpen(true);
+          }}
+        >
+          <div className={styles.rowMain}>
+            <span className={styles.rowName}>Удалить аккаунт</span>
+            <span className={styles.rowSub}>имя, фото и реквизиты сотрутся</span>
+          </div>
+        </button>
+      </section>
+
+      {deleteOpen && (
+        <ConfirmDialog
+          title="Удалить аккаунт?"
+          description={
+            'Имя, фото, юзернейм и реквизиты сотрутся, вы выйдете из всех групп. ' +
+            'Долги и голоса останутся у других участников под именем «Удалённый пользователь». ' +
+            'Отменить это нельзя.'
+          }
+          confirmLabel="Удалить"
+          destructive
+          pending={deleteAccount.isPending}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteOpen(false)}
+        />
+      )}
 
       <EditPaymentInfoSheet
         open={sbpOpen}

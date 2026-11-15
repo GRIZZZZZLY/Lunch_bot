@@ -152,8 +152,27 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
       await route.fulfill({
         status: failure.status,
         contentType: 'application/json',
-        body: JSON.stringify({ success: false, error: failure.error, code: failure.code }),
+        body: JSON.stringify({
+          success: false,
+          error: failure.error,
+          code: failure.code,
+          ...(failure.blockers && { blockers: failure.blockers }),
+        }),
       });
+      return;
+    }
+
+    if (state.accountDeleted && !path.startsWith('/auth/')) {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: false, error: 'User not found or inactive', code: 'USER_NOT_ACTIVE' }),
+      });
+      return;
+    }
+    if (method === 'DELETE' && path === '/user/me') {
+      state.accountDeleted = true;
+      await route.fulfill({ json: ok({ deleted: true }) });
       return;
     }
 
